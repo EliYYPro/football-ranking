@@ -16,15 +16,31 @@ const formatDate = (date) => {
   }
 }
 
+function LeagueLogo({ markOnly = false }) {
+  return (
+    <span className={`league-logo ${markOnly ? 'mark-only' : ''}`}>
+      <span className="league-crest" aria-hidden="true">
+        <span className="crest-ring">VRA</span>
+      </span>
+      {!markOnly && (
+        <span className="league-wordmark">
+          <b>ותיקי רמת אפעל</b>
+          <small>FOOTBALL LEAGUE</small>
+        </span>
+      )}
+    </span>
+  )
+}
+
 function Shell({ children }) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link to="/" className="brand">⚽ ליגת החברים</Link>
+        <Link to="/" className="brand"><LeagueLogo /></Link>
         <Link to="/admin" className="admin-link">Admin</Link>
       </header>
       {children}
-      <footer>Football Ranking • V2</footer>
+      <footer>ותיקי רמת אפעל • Football Ranking</footer>
     </div>
   )
 }
@@ -80,7 +96,7 @@ function Home() {
             <h1>טבלת הליגה</h1>
             <p>כל התוצאות, הניצחונות והנקודות מתעדכנים אוטומטית אחרי כל מחזור.</p>
           </div>
-          <div className="hero-ball" aria-hidden="true">⚽</div>
+          <div className="hero-crest" aria-hidden="true"><LeagueLogo markOnly /></div>
         </section>
 
         {latestRound?.winner_photo_url && (
@@ -97,35 +113,63 @@ function Home() {
 
         {error && <div className="notice error-box">{error}</div>}
 
-        <section className="card leaderboard">
-          <div className="table-head">
-            <span>מקום</span>
-            <span>שחקן</span>
-            <span>ניצחונות</span>
-            <span>נקודות</span>
-          </div>
-
-          {loading ? (
-            <div className="empty">טוען טבלה…</div>
-          ) : leaderboard.length === 0 ? (
-            <div className="empty">עדיין אין שחקנים בטבלה.</div>
-          ) : (
-            leaderboard.map((p, i) => (
-              <Link to={`/player/${p.id}`} className={`player-row ${i < 3 ? 'podium' : ''}`} key={p.id}>
-                <span className="rank">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
-                <span className="player">
-                  <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
-                  <span className="player-text">
-                    <b>{p.name}</b>
+        {loading ? (
+          <section className="card leaderboard"><div className="empty">טוען טבלה…</div></section>
+        ) : leaderboard.length === 0 ? (
+          <section className="card leaderboard"><div className="empty">עדיין אין שחקנים בטבלה.</div></section>
+        ) : (
+          <>
+            <section className="top-three-section">
+              <div className="top-three-heading">
+                <div>
+                  <span className="eyebrow">הפודיום</span>
+                  <h2>שלושת המובילים</h2>
+                </div>
+                <span className="top-three-note">מתעדכן אוטומטית לפי הניקוד</span>
+              </div>
+              <div className="top-three">
+                {leaderboard.slice(0, 3).map((p, i) => (
+                  <Link to={`/player/${p.id}`} className={`top-player-card top-${i + 1}`} key={p.id}>
+                    <span className="top-rank">{i + 1}</span>
+                    <span className="medal">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                    <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
+                    <div className="top-player-name">{p.name}</div>
                     {p.team_name && <small>{p.team_name}</small>}
-                  </span>
-                </span>
-                <span>{p.total_wins}</span>
-                <strong>{p.total_points}</strong>
-              </Link>
-            ))
-          )}
-        </section>
+                    <div className="top-player-stats">
+                      <span><b>{p.total_points}</b> נק׳</span>
+                      <span><b>{p.total_wins}</b> ניצ׳</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {leaderboard.length > 3 && (
+              <section className="card leaderboard rest-table">
+                <div className="table-head">
+                  <span>מקום</span>
+                  <span>שחקן</span>
+                  <span>ניצחונות</span>
+                  <span>נקודות</span>
+                </div>
+                {leaderboard.slice(3).map((p, i) => (
+                  <Link to={`/player/${p.id}`} className="player-row" key={p.id}>
+                    <span className="rank">{i + 4}</span>
+                    <span className="player">
+                      <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
+                      <span className="player-text">
+                        <b>{p.name}</b>
+                        {p.team_name && <small>{p.team_name}</small>}
+                      </span>
+                    </span>
+                    <span>{p.total_wins}</span>
+                    <strong>{p.total_points}</strong>
+                  </Link>
+                ))}
+              </section>
+            )}
+          </>
+        )}
 
         {recentRounds.length > 0 && (
           <section className="recent-rounds">
@@ -342,6 +386,11 @@ function AdminPanel() {
   const [newTeam, setNewTeam] = useState('')
   const [newPhoto, setNewPhoto] = useState(null)
 
+  const [editingPlayerId, setEditingPlayerId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editTeam, setEditTeam] = useState('')
+  const [editPhoto, setEditPhoto] = useState(null)
+
   async function loadData() {
     setLoading(true)
     const [pRes, rRes, resRes] = await Promise.all([
@@ -370,6 +419,19 @@ function AdminPanel() {
     const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false })
     if (error) throw error
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
+  }
+
+  function toggleScore(playerId, value) {
+    const alreadySelected = Number(scores[playerId]) === value
+    setScores(prev => {
+      const next = { ...prev }
+      if (alreadySelected) delete next[playerId]
+      else next[playerId] = value
+      return next
+    })
+    if (alreadySelected) {
+      setWins(prev => ({ ...prev, [playerId]: false }))
+    }
   }
 
   async function saveRound() {
@@ -416,6 +478,17 @@ function AdminPanel() {
           won: Boolean(wins[p.id]),
           opponent_team: opponents[p.id]?.trim() || null,
         }))
+
+      const selectedIds = new Set(rows.map(r => r.player_id))
+      const activeIds = new Set(activePlayers.map(p => p.id))
+      const idsToDelete = results
+        .filter(r => r.round_id === roundRow.id && activeIds.has(r.player_id) && !selectedIds.has(r.player_id))
+        .map(r => r.id)
+
+      if (idsToDelete.length) {
+        const { error } = await supabase.from('results').delete().in('id', idsToDelete)
+        if (error) throw error
+      }
 
       if (rows.length) {
         const { error } = await supabase.from('results').upsert(rows, { onConflict: 'round_id,player_id' })
@@ -484,6 +557,54 @@ function AdminPanel() {
     }
   }
 
+  function startEditPlayer(player) {
+    setEditingPlayerId(player.id)
+    setEditName(player.name || '')
+    setEditTeam(player.team_name || '')
+    setEditPhoto(null)
+    setStatus('')
+  }
+
+  function cancelEditPlayer() {
+    setEditingPlayerId(null)
+    setEditName('')
+    setEditTeam('')
+    setEditPhoto(null)
+  }
+
+  async function savePlayerEdit(player) {
+    if (!editName.trim()) {
+      setStatus('שגיאה: שם השחקן לא יכול להיות ריק.')
+      return
+    }
+
+    setBusy(true)
+    setStatus('')
+    try {
+      let photoUrl = player.photo_url || null
+      if (editPhoto) photoUrl = await uploadImage('player-photos', editPhoto, 'players')
+
+      const { error } = await supabase
+        .from('players')
+        .update({
+          name: editName.trim(),
+          team_name: editTeam.trim() || null,
+          photo_url: photoUrl,
+        })
+        .eq('id', player.id)
+
+      if (error) throw error
+
+      setStatus('פרטי השחקן עודכנו בהצלחה ✅')
+      cancelEditPlayer()
+      await loadData()
+    } catch (err) {
+      setStatus(`שגיאה: ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function togglePlayer(player) {
     setBusy(true)
     const { error } = await supabase.from('players').update({ is_active: !player.is_active }).eq('id', player.id)
@@ -500,7 +621,7 @@ function AdminPanel() {
   return (
     <div className="admin-layout">
       <aside>
-        <Link to="/" className="brand">⚽ ליגת החברים</Link>
+        <Link to="/" className="brand"><LeagueLogo /></Link>
         <button className={tab === 'round' ? 'active' : ''} onClick={() => setTab('round')}>🏆 עדכון מחזור</button>
         <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>👥 ניהול שחקנים</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>🕘 היסטוריה</button>
@@ -538,15 +659,19 @@ function AdminPanel() {
                     <input type="checkbox" checked={Boolean(wins[p.id])} onChange={e => setWins({ ...wins, [p.id]: e.target.checked })} />
                     ניצחון
                   </label>
-                  <div className="score-buttons">
-                    {[0, 1, 2, 3].map(n => (
-                      <button
-                        type="button"
-                        key={n}
-                        className={Number(scores[p.id]) === n ? 'selected' : ''}
-                        onClick={() => setScores({ ...scores, [p.id]: n })}
-                      >{n}</button>
-                    ))}
+                  <div className="score-picker">
+                    <div className="score-buttons">
+                      {[1, 2, 3].map(n => (
+                        <button
+                          type="button"
+                          key={n}
+                          aria-pressed={Number(scores[p.id]) === n}
+                          className={Number(scores[p.id]) === n ? 'selected' : ''}
+                          onClick={() => toggleScore(p.id, n)}
+                        >{n}</button>
+                      ))}
+                    </div>
+                    <small>לחיצה חוזרת מבטלת</small>
                   </div>
                 </div>
               ))}
@@ -584,15 +709,56 @@ function AdminPanel() {
 
             <div className="card manage-list">
               {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => (
-                <div key={p.id} className={!p.is_active ? 'inactive-row' : ''}>
-                  <span className="player">
-                    <img src={p.photo_url || avatarFallback(p.name)} alt="" />
-                    <span className="player-text"><b>{p.name}</b>{p.team_name && <small>{p.team_name}</small>}</span>
-                  </span>
-                  <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
-                  <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
-                    {p.is_active ? 'הסתר' : 'החזר'}
-                  </button>
+                <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
+                  {editingPlayerId === p.id ? (
+                    <div className="player-edit-panel">
+                      <div className="player-edit-head">
+                        <img src={p.photo_url || avatarFallback(p.name)} alt="" />
+                        <div>
+                          <b>עריכת שחקן</b>
+                          <small>אפשר לשנות שם, תיאור וגם להחליף תמונה.</small>
+                        </div>
+                      </div>
+                      <div className="player-edit-fields">
+                        <input
+                          type="text"
+                          placeholder="שם השחקן"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          placeholder="שם קבוצה / תיאור (אופציונלי)"
+                          value={editTeam}
+                          onChange={e => setEditTeam(e.target.value)}
+                        />
+                        <label className="edit-photo-field">
+                          <span>החלפת תמונה (אופציונלי)</span>
+                          <input type="file" accept="image/*" onChange={e => setEditPhoto(e.target.files?.[0] || null)} />
+                        </label>
+                      </div>
+                      <div className="player-edit-actions">
+                        <button type="button" className="primary compact" disabled={busy} onClick={() => savePlayerEdit(p)}>
+                          {busy ? 'שומר…' : 'שמור שינויים'}
+                        </button>
+                        <button type="button" className="secondary" disabled={busy} onClick={cancelEditPlayer}>ביטול</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="player">
+                        <img src={p.photo_url || avatarFallback(p.name)} alt="" />
+                        <span className="player-text"><b>{p.name}</b>{p.team_name && <small>{p.team_name}</small>}</span>
+                      </span>
+                      <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
+                      <span className="manage-actions">
+                        <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
+                        <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
+                          {p.is_active ? 'הסתר' : 'החזר'}
+                        </button>
+                      </span>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
