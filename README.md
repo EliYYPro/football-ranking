@@ -42,3 +42,4 @@
 
 ## אבטחה
 ה-Publishable key מותר לשימוש בדפדפן; ההרשאות עצמן נאכפות ב-Supabase RLS. לעולם אין להכניס service_role key לקוד Frontend.
+Deployment trigger
