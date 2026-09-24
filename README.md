@@ -1,20 +1,18 @@
-Football Ranking App — V6
+Football Ranking App — V5A (revert to V5 style)
 
-Changes in this update:
-- Blue/black redesigned visual language
-- Main headline updated to: "טבלת ליגת ותיקי רמת אפעל"
-- Season label added: "עונת 2026/27"
-- Footer text now includes: "מאמן: דניאל לשר"
-- Hero/header redesigned in the cinematic football style requested by the user
-- Added ranking trend arrows: green up arrow / red down arrow vs previous week
-- Round update screen simplified:
-  - removed opponent team field
-  - mark only winners
-  - choose one global points value (1/2/3) for all winners
-  - clicking the same selected points value again clears it
-- Previous features remain: top 3 podium, highlighted places 4-5, player edit flow
+This update returns the app to the V5 design/layout and keeps the older admin screen.
 
-Files to upload to GitHub:
+Included in this update:
+- Reverted visual design back to V5
+- Reverted admin screen back to the V5 structure
+- Footer updated to:
+  "טבלת ליגת ותיקי רמת אפעל • עונת 2026/27 • מאמן: דניאל לשר"
+- Ranking trend arrows added back in a subtle way:
+  - green ▲ = moved up
+  - red ▼ = moved down
+  - arrows are positioned to the LEFT of the player name
+
+Files to upload:
 - index.html
 - src/main.jsx
 - src/styles.css
