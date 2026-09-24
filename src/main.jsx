@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0d5f3c&color=fff&size=256&bold=true`
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071426&color=ffffff&size=256&bold=true`
 
 const formatDate = (date) => {
   if (!date) return ''
@@ -20,12 +20,14 @@ function LeagueLogo({ markOnly = false }) {
   return (
     <span className={`league-logo ${markOnly ? 'mark-only' : ''}`}>
       <span className="league-crest" aria-hidden="true">
+        <span className="crest-stars">★ ★ ★</span>
         <span className="crest-ring">VRA</span>
+        <span className="crest-year">26/27</span>
       </span>
       {!markOnly && (
         <span className="league-wordmark">
           <b>ותיקי רמת אפעל</b>
-          <small>FOOTBALL LEAGUE</small>
+          <small>VETERANS FOOTBALL LEAGUE</small>
         </span>
       )}
     </span>
@@ -40,7 +42,7 @@ function Shell({ children }) {
         <Link to="/admin" className="admin-link">Admin</Link>
       </header>
       {children}
-      <footer>ותיקי רמת אפעל • Football Ranking</footer>
+      <footer>טבלת ליגת ותיקי רמת אפעל • עונת 2026/27</footer>
     </div>
   )
 }
@@ -91,12 +93,18 @@ function Home() {
     <Shell>
       <main className="page">
         <section className="hero">
-          <div>
-            <div className="eyebrow">הדירוג השבועי</div>
-            <h1>טבלת הליגה</h1>
-            <p>כל התוצאות, הניצחונות והנקודות מתעדכנים אוטומטית אחרי כל מחזור.</p>
+          <div className="stadium-lights stadium-lights-left" aria-hidden="true" />
+          <div className="stadium-lights stadium-lights-right" aria-hidden="true" />
+          <div className="hero-copy">
+            <div className="hero-kicker">ליגת הכדורגל</div>
+            <h1>טבלת ליגת<br />ותיקי רמת אפעל</h1>
+            <div className="season-ribbon">עונת 2026/27</div>
+            <p>הדירוג מתעדכן אוטומטית אחרי כל מחזור.</p>
           </div>
-          <div className="hero-crest" aria-hidden="true"><LeagueLogo markOnly /></div>
+          <div className="hero-visual" aria-hidden="true">
+            <div className="hero-ball"><span>VRA</span></div>
+            <div className="hero-crest"><LeagueLogo markOnly /></div>
+          </div>
         </section>
 
         {latestRound?.winner_photo_url && (
@@ -152,9 +160,11 @@ function Home() {
                   <span>ניצחונות</span>
                   <span>נקודות</span>
                 </div>
-                {leaderboard.slice(3).map((p, i) => (
-                  <Link to={`/player/${p.id}`} className="player-row" key={p.id}>
-                    <span className="rank">{i + 4}</span>
+                {leaderboard.slice(3).map((p, i) => {
+                  const rank = i + 4
+                  return (
+                  <Link to={`/player/${p.id}`} className={`player-row ${rank === 4 ? 'rank-four' : rank === 5 ? 'rank-five' : ''}`} key={p.id}>
+                    <span className="rank">{rank}</span>
                     <span className="player">
                       <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
                       <span className="player-text">
@@ -165,7 +175,8 @@ function Home() {
                     <span>{p.total_wins}</span>
                     <strong>{p.total_points}</strong>
                   </Link>
-                ))}
+                  )
+                })}
               </section>
             )}
           </>
@@ -266,7 +277,6 @@ function Player() {
                   <div key={r.id}>
                     <span>
                       <b>מחזור {r.round?.round_number}</b>
-                      {r.opponent_team && <small>נגד {r.opponent_team}</small>}
                     </span>
                     <span className={r.won ? 'win-badge' : 'muted-badge'}>{r.won ? 'ניצחון' : '—'}</span>
                     <b>{r.points} נק׳</b>
@@ -376,9 +386,8 @@ function AdminPanel() {
   const nextRound = useMemo(() => (rounds.length ? Math.max(...rounds.map(r => r.round_number)) + 1 : 1), [rounds])
   const [roundNumber, setRoundNumber] = useState(1)
   const [roundDate, setRoundDate] = useState(new Date().toISOString().slice(0, 10))
-  const [scores, setScores] = useState({})
   const [wins, setWins] = useState({})
-  const [opponents, setOpponents] = useState({})
+  const [roundPoints, setRoundPoints] = useState(null)
   const [winnerFile, setWinnerFile] = useState(null)
   const [winnerCaption, setWinnerCaption] = useState('')
 
@@ -421,17 +430,12 @@ function AdminPanel() {
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
   }
 
-  function toggleScore(playerId, value) {
-    const alreadySelected = Number(scores[playerId]) === value
-    setScores(prev => {
-      const next = { ...prev }
-      if (alreadySelected) delete next[playerId]
-      else next[playerId] = value
-      return next
-    })
-    if (alreadySelected) {
-      setWins(prev => ({ ...prev, [playerId]: false }))
-    }
+  function toggleWinner(playerId) {
+    setWins(prev => ({ ...prev, [playerId]: !prev[playerId] }))
+  }
+
+  function toggleRoundPoints(value) {
+    setRoundPoints(prev => prev === value ? null : value)
   }
 
   async function saveRound() {
@@ -440,6 +444,11 @@ function AdminPanel() {
     try {
       const number = Number(roundNumber)
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
+
+      const winnerPlayers = activePlayers.filter(p => Boolean(wins[p.id]))
+      if (winnerPlayers.length > 0 && !roundPoints) {
+        throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
+      }
 
       const { data: existingRound, error: findErr } = await supabase
         .from('rounds')
@@ -469,15 +478,13 @@ function AdminPanel() {
         roundRow = data
       }
 
-      const rows = activePlayers
-        .filter(p => scores[p.id] !== undefined && scores[p.id] !== '')
-        .map(p => ({
-          round_id: roundRow.id,
-          player_id: p.id,
-          points: Number(scores[p.id]),
-          won: Boolean(wins[p.id]),
-          opponent_team: opponents[p.id]?.trim() || null,
-        }))
+      const rows = winnerPlayers.map(p => ({
+        round_id: roundRow.id,
+        player_id: p.id,
+        points: Number(roundPoints),
+        won: true,
+        opponent_team: null,
+      }))
 
       const selectedIds = new Set(rows.map(r => r.player_id))
       const activeIds = new Set(activePlayers.map(p => p.id))
@@ -496,9 +503,8 @@ function AdminPanel() {
       }
 
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
-      setScores({})
       setWins({})
-      setOpponents({})
+      setRoundPoints(null)
       setWinnerFile(null)
       setWinnerCaption('')
       await loadData()
@@ -516,18 +522,16 @@ function AdminPanel() {
     setWinnerCaption(round.winner_caption || '')
     setWinnerFile(null)
 
-    const roundResults = results.filter(r => r.round_id === round.id)
-    const scoreMap = {}
+    const roundResults = results.filter(r => r.round_id === round.id && r.won)
     const winMap = {}
-    const oppMap = {}
-    roundResults.forEach(r => {
-      scoreMap[r.player_id] = r.points
-      winMap[r.player_id] = r.won
-      oppMap[r.player_id] = r.opponent_team || ''
-    })
-    setScores(scoreMap)
+    roundResults.forEach(r => { winMap[r.player_id] = true })
     setWins(winMap)
-    setOpponents(oppMap)
+
+    const pointValues = [...new Set(roundResults.map(r => Number(r.points)).filter(Boolean))]
+    setRoundPoints(pointValues.length === 1 ? pointValues[0] : null)
+    if (pointValues.length > 1) {
+      setStatus('למחזור הזה נשמרו בעבר ערכי ניקוד שונים. בחר ניקוד אחיד חדש לפני השמירה.')
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -641,40 +645,52 @@ function AdminPanel() {
               </div>
             </div>
 
-            <div className="card score-list">
+            <div className="card score-list winner-select-list">
+              <div className="winner-list-intro">
+                <div>
+                  <span className="eyebrow">שלב 1</span>
+                  <h2>מי ניצח במחזור?</h2>
+                </div>
+                <span className="winner-count">נבחרו {Object.values(wins).filter(Boolean).length} מנצחים</span>
+              </div>
               {loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.length === 0 ? <div className="empty">הוסף שחקנים כדי להזין תוצאות.</div> : activePlayers.map(p => (
-                <div className="score-row" key={p.id}>
+                <button
+                  type="button"
+                  className={`winner-row ${wins[p.id] ? 'selected' : ''}`}
+                  key={p.id}
+                  onClick={() => toggleWinner(p.id)}
+                >
                   <span className="player admin-player">
                     <img src={p.photo_url || avatarFallback(p.name)} alt="" />
                     <b>{p.name}</b>
                   </span>
-                  <input
-                    className="opponent-input"
-                    type="text"
-                    placeholder="נגד קבוצה…"
-                    value={opponents[p.id] || ''}
-                    onChange={e => setOpponents({ ...opponents, [p.id]: e.target.value })}
-                  />
-                  <label className="win-toggle">
-                    <input type="checkbox" checked={Boolean(wins[p.id])} onChange={e => setWins({ ...wins, [p.id]: e.target.checked })} />
-                    ניצחון
-                  </label>
-                  <div className="score-picker">
-                    <div className="score-buttons">
-                      {[1, 2, 3].map(n => (
-                        <button
-                          type="button"
-                          key={n}
-                          aria-pressed={Number(scores[p.id]) === n}
-                          className={Number(scores[p.id]) === n ? 'selected' : ''}
-                          onClick={() => toggleScore(p.id, n)}
-                        >{n}</button>
-                      ))}
-                    </div>
-                    <small>לחיצה חוזרת מבטלת</small>
-                  </div>
-                </div>
+                  <span className="winner-check" aria-hidden="true">{wins[p.id] ? '✓' : ''}</span>
+                  <span className="winner-label">{wins[p.id] ? 'מנצח' : 'סמן כמנצח'}</span>
+                </button>
               ))}
+            </div>
+
+            <div className="card round-points-panel">
+              <div>
+                <span className="eyebrow">שלב 2</span>
+                <h2>כמה נקודות לתת לכל המנצחים?</h2>
+                <p>הניקוד שנבחר יחול על כל השחקנים שסומנו כמנצחים במחזור הזה.</p>
+              </div>
+              <div className="global-score-buttons" role="group" aria-label="ניקוד לכל המנצחים">
+                {[1, 2, 3].map(n => (
+                  <button
+                    type="button"
+                    key={n}
+                    aria-pressed={roundPoints === n}
+                    className={roundPoints === n ? 'selected' : ''}
+                    onClick={() => toggleRoundPoints(n)}
+                  >
+                    <b>{n}</b>
+                    <span>{n === 1 ? 'נקודה' : 'נקודות'}</span>
+                  </button>
+                ))}
+              </div>
+              <small className="points-hint">לחיצה נוספת על אותו ניקוד מבטלת את הבחירה.</small>
             </div>
 
             <div className="card weekly-upload">
