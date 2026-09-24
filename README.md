@@ -1,19 +1,20 @@
-# Football Ranking — V5 Update
+Football Ranking App — V6
 
-עדכון עיצוב ופונקציונליות ל־"טבלת ליגת ותיקי רמת אפעל" — עונת 2026/27.
+Changes in this update:
+- Blue/black redesigned visual language
+- Main headline updated to: "טבלת ליגת ותיקי רמת אפעל"
+- Season label added: "עונת 2026/27"
+- Footer text now includes: "מאמן: דניאל לשר"
+- Hero/header redesigned in the cinematic football style requested by the user
+- Added ranking trend arrows: green up arrow / red down arrow vs previous week
+- Round update screen simplified:
+  - removed opponent team field
+  - mark only winners
+  - choose one global points value (1/2/3) for all winners
+  - clicking the same selected points value again clears it
+- Previous features remain: top 3 podium, highlighted places 4-5, player edit flow
 
-## מה חדש
-- עיצוב כחול־שחור בסגנון אצטדיון.
-- כותרת חדשה + עונת 2026/27.
-- Top 3 כפודיום מודגש.
-- מקומות 4–5 מודגשים כ־Top 5.
-- עדכון מחזור חדש: מסמנים רק את המנצחים, ובוחרים ניקוד אחיד 1/2/3 לכל המנצחים.
-- בוטל שדה "נגד קבוצה".
-- נשמרה עריכת שחקנים מ־V4.
-
-## קבצים להחלפה ב־GitHub
-- `index.html`
-- `src/main.jsx`
-- `src/styles.css`
-
-אין צורך לשנות את Supabase או את מבנה בסיס הנתונים.
+Files to upload to GitHub:
+- index.html
+- src/main.jsx
+- src/styles.css
