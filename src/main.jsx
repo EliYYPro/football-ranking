@@ -4,12 +4,8 @@ import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'reac
 import { supabase } from './supabase'
 import './styles.css'
 
-const LEAGUE_NAME = 'טבלת ליגת ותיקי רמת אפעל'
-const LEAGUE_SEASON = 'עונת 2026/27'
-const COACH_NAME = 'מאמן: דניאל לשר'
-
 const avatarFallback = (name = 'Player') =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=11243b&color=ffffff&size=256&bold=true`
+  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071426&color=ffffff&size=256&bold=true`
 
 const formatDate = (date) => {
   if (!date) return ''
@@ -19,6 +15,8 @@ const formatDate = (date) => {
     return date
   }
 }
+
+const FOOTER_TEXT = 'טבלת ליגת ותיקי רמת אפעל • עונת 2026/27 • מאמן: דניאל לשר'
 
 const compareLeaderboard = (a, b) =>
   (Number(b.total_points) - Number(a.total_points)) ||
@@ -33,27 +31,28 @@ const buildRankMap = (items) => {
   }, {})
 }
 
+function TrendArrow({ trend }) {
+  if (trend === 'up') return <span className="trend-arrow up" title="עלה בדירוג">▲</span>
+  if (trend === 'down') return <span className="trend-arrow down" title="ירד בדירוג">▼</span>
+  return null
+}
+
 function LeagueLogo({ markOnly = false }) {
   return (
     <span className={`league-logo ${markOnly ? 'mark-only' : ''}`}>
       <span className="league-crest" aria-hidden="true">
-        <span className="crest-ball">⚽</span>
-        <span className="crest-caption">VRA</span>
+        <span className="crest-stars">★ ★ ★</span>
+        <span className="crest-ring">VRA</span>
+        <span className="crest-year">26/27</span>
       </span>
       {!markOnly && (
         <span className="league-wordmark">
           <b>ותיקי רמת אפעל</b>
-          <small>2026/27</small>
+          <small>VETERANS FOOTBALL LEAGUE</small>
         </span>
       )}
     </span>
   )
-}
-
-function TrendArrow({ trend }) {
-  if (trend === 'up') return <span className="trend-arrow up" title="עלה בדירוג">▲</span>
-  if (trend === 'down') return <span className="trend-arrow down" title="ירד בדירוג">▼</span>
-  return <span className="trend-arrow same" aria-hidden="true">•</span>
 }
 
 function Shell({ children }) {
@@ -64,7 +63,7 @@ function Shell({ children }) {
         <Link to="/admin" className="admin-link">Admin</Link>
       </header>
       {children}
-      <footer>{LEAGUE_NAME} • {LEAGUE_SEASON} • {COACH_NAME}</footer>
+      <footer>{FOOTER_TEXT}</footer>
     </div>
   )
 }
@@ -127,15 +126,10 @@ function usePublicHomeData() {
         leaders.forEach(player => {
           const currentRank = currentRankMap[player.id]
           const previousRank = previousRankMap[player.id]
-          if (!currentRank || !previousRank) {
-            nextTrendMap[player.id] = 'same'
-          } else if (currentRank < previousRank) {
-            nextTrendMap[player.id] = 'up'
-          } else if (currentRank > previousRank) {
-            nextTrendMap[player.id] = 'down'
-          } else {
-            nextTrendMap[player.id] = 'same'
-          }
+          if (!currentRank || !previousRank) nextTrendMap[player.id] = 'same'
+          else if (currentRank < previousRank) nextTrendMap[player.id] = 'up'
+          else if (currentRank > previousRank) nextTrendMap[player.id] = 'down'
+          else nextTrendMap[player.id] = 'same'
         })
       }
     }
@@ -154,29 +148,26 @@ function usePublicHomeData() {
 function Home() {
   const { leaderboard, latestRound, recentRounds, trendMap, loading, error } = usePublicHomeData()
 
-  const topThree = leaderboard.slice(0, 3)
-  const topFiveExtras = leaderboard.slice(3, 5)
-  const restTable = leaderboard.slice(5)
-
   return (
     <Shell>
-      <main className="page page-home">
-        <section className="hero stadium-hero">
-          <div className="hero-lights" aria-hidden="true" />
+      <main className="page">
+        <section className="hero">
+          <div className="stadium-lights stadium-lights-left" aria-hidden="true" />
+          <div className="stadium-lights stadium-lights-right" aria-hidden="true" />
           <div className="hero-copy">
-            <div className="hero-pill">ליגת כדורגל על רקע אצטדיון</div>
-            <div className="brush-stack">
-              <div className="brush-title">טבלת ליגת</div>
-              <div className="brush-title large">ותיקי רמת אפעל</div>
-            </div>
-            <div className="season-brush">{LEAGUE_SEASON}</div>
-            <div className="hero-caption">דירוג חי • טופ 5 מודגש • {COACH_NAME}</div>
+            <div className="hero-kicker">ליגת הכדורגל</div>
+            <h1>טבלת ליגת<br />ותיקי רמת אפעל</h1>
+            <div className="season-ribbon">עונת 2026/27</div>
+            <p>הדירוג מתעדכן אוטומטית אחרי כל מחזור.</p>
           </div>
-          <div className="hero-ball" aria-hidden="true" />
+          <div className="hero-visual" aria-hidden="true">
+            <div className="hero-ball"><span>VRA</span></div>
+            <div className="hero-crest"><LeagueLogo markOnly /></div>
+          </div>
         </section>
 
         {latestRound?.winner_photo_url && (
-          <section className="winner-card card dark-card">
+          <section className="winner-card card">
             <img src={latestRound.winner_photo_url} alt={`זוכי מחזור ${latestRound.round_number}`} />
             <div className="winner-copy">
               <span className="eyebrow">🏆 זוכי השבוע</span>
@@ -190,87 +181,59 @@ function Home() {
         {error && <div className="notice error-box">{error}</div>}
 
         {loading ? (
-          <section className="card leaderboard dark-card"><div className="empty">טוען טבלה…</div></section>
+          <section className="card leaderboard"><div className="empty">טוען טבלה…</div></section>
         ) : leaderboard.length === 0 ? (
-          <section className="card leaderboard dark-card"><div className="empty">עדיין אין שחקנים בטבלה.</div></section>
+          <section className="card leaderboard"><div className="empty">עדיין אין שחקנים בטבלה.</div></section>
         ) : (
           <>
-            <section className="podium-zone">
-              <div className="section-headline">
+            <section className="top-three-section">
+              <div className="top-three-heading">
                 <div>
                   <span className="eyebrow">הפודיום</span>
                   <h2>שלושת המובילים</h2>
                 </div>
-                <span className="section-note">טבלת הדירוג מתעדכנת אוטומטית אחרי כל מחזור</span>
+                <span className="top-three-note">מתעדכן אוטומטית לפי הניקוד</span>
               </div>
-
-              <div className="podium-grid">
-                {topThree[1] && (
-                  <PodiumCard player={topThree[1]} place={2} trend={trendMap[topThree[1].id]} />
-                )}
-                {topThree[0] && (
-                  <PodiumCard player={topThree[0]} place={1} trend={trendMap[topThree[0].id]} highlight />
-                )}
-                {topThree[2] && (
-                  <PodiumCard player={topThree[2]} place={3} trend={trendMap[topThree[2].id]} />
-                )}
+              <div className="top-three">
+                {leaderboard.slice(0, 3).map((p, i) => (
+                  <Link to={`/player/${p.id}`} className={`top-player-card top-${i + 1}`} key={p.id}>
+                    <span className="top-rank">{i + 1}</span>
+                    <span className="medal">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                    <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
+                    <div className="top-player-name"><span className="name-with-trend"><b>{p.name}</b><TrendArrow trend={trendMap[p.id]} /></span></div>
+                    {p.team_name && <small>{p.team_name}</small>}
+                    <div className="top-player-stats">
+                      <span><b>{p.total_points}</b> נק׳</span>
+                      <span><b>{p.total_wins}</b> ניצ׳</span>
+                    </div>
+                  </Link>
+                ))}
               </div>
             </section>
 
-            {topFiveExtras.length > 0 && (
-              <section className="top-five-strip card dark-card">
-                <div className="top-five-header">
-                  <div>
-                    <span className="eyebrow">Top 5</span>
-                    <h3>מקומות 4–5</h3>
-                  </div>
-                  <small>גם הדירוגים האלה מסומנים כהישג משמעותי</small>
-                </div>
-                <div className="top-five-cards">
-                  {topFiveExtras.map((p, idx) => (
-                    <Link to={`/player/${p.id}`} className="top-five-card" key={p.id}>
-                      <div className="top-five-rank">{idx + 4}</div>
-                      <span className="player-inline big">
-                        <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
-                        <span>
-                          <b>{p.name}</b>
-                          <small>{p.team_name || 'שחקן ליגה'}</small>
-                        </span>
-                      </span>
-                      <div className="top-five-meta">
-                        <span className="trend-with-label"><TrendArrow trend={trendMap[p.id]} /> דירוג</span>
-                        <span>{p.total_wins} ניצחונות</span>
-                        <strong>{p.total_points} נק׳</strong>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {(leaderboard.length > 3) && (
-              <section className="card leaderboard dark-card rest-table">
+            {leaderboard.length > 3 && (
+              <section className="card leaderboard rest-table">
                 <div className="table-head">
                   <span>מקום</span>
-                  <span>שם שחקן</span>
+                  <span>שחקן</span>
                   <span>ניצחונות</span>
                   <span>נקודות</span>
                 </div>
-                {(restTable.length ? restTable : leaderboard.slice(3)).map((p, i) => {
-                  const rank = restTable.length ? i + 6 : i + 4
+                {leaderboard.slice(3).map((p, i) => {
+                  const rank = i + 4
                   return (
-                    <Link to={`/player/${p.id}`} className={`player-row ${rank <= 5 ? 'emphasis-row' : ''}`} key={p.id}>
-                      <span className="rank">{rank}</span>
-                      <span className="player">
-                        <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
-                        <span className="player-text">
-                          <b>{p.name}</b>
-                          <span className="trend-inline"><TrendArrow trend={trendMap[p.id]} /> {p.team_name || ''}</span>
-                        </span>
+                  <Link to={`/player/${p.id}`} className={`player-row ${rank === 4 ? 'rank-four' : rank === 5 ? 'rank-five' : ''}`} key={p.id}>
+                    <span className="rank">{rank}</span>
+                    <span className="player">
+                      <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
+                      <span className="player-text">
+                        <span className="name-with-trend"><b>{p.name}</b><TrendArrow trend={trendMap[p.id]} /></span>
+                        {p.team_name && <small>{p.team_name}</small>}
                       </span>
-                      <span>{p.total_wins}</span>
-                      <strong>{p.total_points}</strong>
-                    </Link>
+                    </span>
+                    <span>{p.total_wins}</span>
+                    <strong>{p.total_points}</strong>
+                  </Link>
                   )
                 })}
               </section>
@@ -288,7 +251,7 @@ function Home() {
             </div>
             <div className="round-cards">
               {recentRounds.map(r => (
-                <div className="mini-round card dark-card" key={r.id}>
+                <div className="mini-round card" key={r.id}>
                   {r.winner_photo_url ? <img src={r.winner_photo_url} alt="" /> : <div className="mini-placeholder">🏆</div>}
                   <div>
                     <b>מחזור {r.round_number}</b>
@@ -305,27 +268,6 @@ function Home() {
   )
 }
 
-function PodiumCard({ player, place, trend, highlight = false }) {
-  return (
-    <Link to={`/player/${player.id}`} className={`podium-card place-${place} ${highlight ? 'is-highlight' : ''}`}>
-      <div className="podium-place-wrap">
-        <span className="podium-place">{place}</span>
-        <span className="podium-crown" aria-hidden="true">{place === 1 ? '👑' : place === 2 ? '🥈' : '🥉'}</span>
-      </div>
-      <img src={player.photo_url || avatarFallback(player.name)} alt={player.name} />
-      <div className="podium-name-row">
-        <b>{player.name}</b>
-        <TrendArrow trend={trend} />
-      </div>
-      <small>{player.team_name || 'שחקן ליגה'}</small>
-      <div className="podium-stats">
-        <span>{player.total_points} נק׳</span>
-        <span>{player.total_wins} ניצ׳</span>
-      </div>
-    </Link>
-  )
-}
-
 function Player() {
   const { id } = useParams()
   const [player, setPlayer] = useState(null)
@@ -338,10 +280,15 @@ function Player() {
     async function load() {
       setLoading(true)
       const [leadersRes, resultsRes] = await Promise.all([
-        supabase.from('leaderboard').select('*'),
+        supabase
+          .from('leaderboard')
+          .select('*')
+          .order('total_points', { ascending: false })
+          .order('total_wins', { ascending: false })
+          .order('name'),
         supabase
           .from('results')
-          .select('id, points, won, round:rounds(id, round_number, round_date)')
+          .select('id, points, won, opponent_team, round:rounds(id, round_number, round_date)')
           .eq('player_id', id),
       ])
 
@@ -349,7 +296,7 @@ function Player() {
         setError(leadersRes.error?.message || resultsRes.error?.message || 'שגיאה בטעינת השחקן')
       }
 
-      const leaders = [...(leadersRes.data || [])].sort(compareLeaderboard)
+      const leaders = leadersRes.data || []
       const found = leaders.find(x => x.id === id)
       setPlayer(found || null)
       setPlace(found ? leaders.findIndex(x => x.id === id) + 1 : null)
@@ -370,7 +317,7 @@ function Player() {
           <div className="empty card">השחקן לא נמצא.</div>
         ) : (
           <>
-            <section className="profile card dark-card">
+            <section className="profile card">
               <img className="profile-img" src={player.photo_url || avatarFallback(player.name)} alt={player.name} />
               <h1>{player.name}</h1>
               {player.team_name && <div className="team-label">{player.team_name}</div>}
@@ -382,17 +329,17 @@ function Player() {
               </div>
             </section>
 
-            <section className="card history-card dark-card">
+            <section className="card history-card">
               <h2>היסטוריית מחזורים</h2>
               <div className="history">
                 {history.length === 0 ? <div className="empty">עדיין אין תוצאות לשחקן הזה.</div> : history.map(r => (
                   <div key={r.id}>
                     <span>
                       <b>מחזור {r.round?.round_number}</b>
-                      <small>{formatDate(r.round?.round_date)}</small>
                     </span>
                     <span className={r.won ? 'win-badge' : 'muted-badge'}>{r.won ? 'ניצחון' : '—'}</span>
                     <b>{r.points} נק׳</b>
+                    <small>{formatDate(r.round?.round_date)}</small>
                   </div>
                 ))}
               </div>
@@ -422,7 +369,7 @@ function Login({ onLogin }) {
 
   return (
     <div className="login-wrap">
-      <form className="card login dark-card" onSubmit={submit}>
+      <form className="card login" onSubmit={submit}>
         <div className="login-icon">🔐</div>
         <h1>כניסת מנהל</h1>
         <p>הכניסה מיועדת למנהל המערכת בלבד.</p>
@@ -473,7 +420,7 @@ function Admin() {
   if (!isAdmin) {
     return (
       <div className="center-screen">
-        <div className="card denied dark-card">
+        <div className="card denied">
           <h2>אין הרשאת Admin</h2>
           <p>המשתמש מחובר, אבל אינו מופיע ברשימת מנהלי המערכת.</p>
           <button onClick={async () => { await supabase.auth.signOut(); location.href = '/' }}>יציאה</button>
@@ -498,7 +445,7 @@ function AdminPanel() {
   const nextRound = useMemo(() => (rounds.length ? Math.max(...rounds.map(r => r.round_number)) + 1 : 1), [rounds])
   const [roundNumber, setRoundNumber] = useState(1)
   const [roundDate, setRoundDate] = useState(new Date().toISOString().slice(0, 10))
-  const [winnerIds, setWinnerIds] = useState({})
+  const [wins, setWins] = useState({})
   const [roundPoints, setRoundPoints] = useState(null)
   const [winnerFile, setWinnerFile] = useState(null)
   const [winnerCaption, setWinnerCaption] = useState('')
@@ -532,7 +479,6 @@ function AdminPanel() {
   useEffect(() => { setRoundNumber(nextRound) }, [nextRound])
 
   const activePlayers = players.filter(p => p.is_active)
-  const selectedWinnerCount = Object.values(winnerIds).filter(Boolean).length
 
   async function uploadImage(bucket, file, prefix) {
     if (!file) return ''
@@ -544,7 +490,7 @@ function AdminPanel() {
   }
 
   function toggleWinner(playerId) {
-    setWinnerIds(prev => ({ ...prev, [playerId]: !prev[playerId] }))
+    setWins(prev => ({ ...prev, [playerId]: !prev[playerId] }))
   }
 
   function toggleRoundPoints(value) {
@@ -557,7 +503,11 @@ function AdminPanel() {
     try {
       const number = Number(roundNumber)
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
-      if (selectedWinnerCount > 0 && !roundPoints) throw new Error('בחר כמה נקודות יקבלו כל המנצחים.')
+
+      const winnerPlayers = activePlayers.filter(p => Boolean(wins[p.id]))
+      if (winnerPlayers.length > 0 && !roundPoints) {
+        throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
+      }
 
       const { data: existingRound, error: findErr } = await supabase
         .from('rounds')
@@ -587,19 +537,18 @@ function AdminPanel() {
         roundRow = data
       }
 
-      const selectedIds = activePlayers.filter(p => winnerIds[p.id]).map(p => p.id)
-      const rows = activePlayers
-        .filter(p => winnerIds[p.id])
-        .map(p => ({
-          round_id: roundRow.id,
-          player_id: p.id,
-          points: Number(roundPoints),
-          won: true,
-        }))
+      const rows = winnerPlayers.map(p => ({
+        round_id: roundRow.id,
+        player_id: p.id,
+        points: Number(roundPoints),
+        won: true,
+        opponent_team: null,
+      }))
 
+      const selectedIds = new Set(rows.map(r => r.player_id))
       const activeIds = new Set(activePlayers.map(p => p.id))
       const idsToDelete = results
-        .filter(r => r.round_id === roundRow.id && activeIds.has(r.player_id) && !selectedIds.includes(r.player_id))
+        .filter(r => r.round_id === roundRow.id && activeIds.has(r.player_id) && !selectedIds.has(r.player_id))
         .map(r => r.id)
 
       if (idsToDelete.length) {
@@ -612,16 +561,8 @@ function AdminPanel() {
         if (error) throw error
       }
 
-      if (!rows.length) {
-        const roundExistingIds = results.filter(r => r.round_id === roundRow.id && activeIds.has(r.player_id)).map(r => r.id)
-        if (roundExistingIds.length) {
-          const { error } = await supabase.from('results').delete().in('id', roundExistingIds)
-          if (error) throw error
-        }
-      }
-
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
-      setWinnerIds({})
+      setWins({})
       setRoundPoints(null)
       setWinnerFile(null)
       setWinnerCaption('')
@@ -640,14 +581,16 @@ function AdminPanel() {
     setWinnerCaption(round.winner_caption || '')
     setWinnerFile(null)
 
-    const roundResults = results.filter(r => r.round_id === round.id)
-    const nextWinnerMap = {}
-    roundResults.forEach(r => {
-      if (r.won) nextWinnerMap[r.player_id] = true
-    })
+    const roundResults = results.filter(r => r.round_id === round.id && r.won)
+    const winMap = {}
+    roundResults.forEach(r => { winMap[r.player_id] = true })
+    setWins(winMap)
 
-    setWinnerIds(nextWinnerMap)
-    setRoundPoints(roundResults[0]?.points || null)
+    const pointValues = [...new Set(roundResults.map(r => Number(r.points)).filter(Boolean))]
+    setRoundPoints(pointValues.length === 1 ? pointValues[0] : null)
+    if (pointValues.length > 1) {
+      setStatus('למחזור הזה נשמרו בעבר ערכי ניקוד שונים. בחר ניקוד אחיד חדש לפני השמירה.')
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -761,48 +704,61 @@ function AdminPanel() {
               </div>
             </div>
 
-            <div className="card score-list dark-card winners-list">
-              <div className="list-intro">
-                <h2>סמן מי ניצח במחזור</h2>
-                <p>לאחר הסימון, בתחתית בחר כמה נקודות כל המנצחים יקבלו.</p>
+            <div className="card score-list winner-select-list">
+              <div className="winner-list-intro">
+                <div>
+                  <span className="eyebrow">שלב 1</span>
+                  <h2>מי ניצח במחזור?</h2>
+                </div>
+                <span className="winner-count">נבחרו {Object.values(wins).filter(Boolean).length} מנצחים</span>
               </div>
               {loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.length === 0 ? <div className="empty">הוסף שחקנים כדי להזין תוצאות.</div> : activePlayers.map(p => (
                 <button
                   type="button"
-                  className={`winner-row ${winnerIds[p.id] ? 'selected' : ''}`}
+                  className={`winner-row ${wins[p.id] ? 'selected' : ''}`}
                   key={p.id}
                   onClick={() => toggleWinner(p.id)}
                 >
                   <span className="player admin-player">
                     <img src={p.photo_url || avatarFallback(p.name)} alt="" />
-                    <span className="player-text"><b>{p.name}</b>{p.team_name && <small>{p.team_name}</small>}</span>
+                    <b>{p.name}</b>
                   </span>
-                  <span className="winner-flag">{winnerIds[p.id] ? '✓ מנצח' : 'סמן מנצח'}</span>
+                  <span className="winner-check" aria-hidden="true">{wins[p.id] ? '✓' : ''}</span>
+                  <span className="winner-label">{wins[p.id] ? 'מנצח' : 'סמן כמנצח'}</span>
                 </button>
               ))}
             </div>
 
-            <div className="card weekly-upload dark-card">
-              <div className="global-points-block">
-                <span className="eyebrow">בחירת נקודות</span>
+            <div className="card round-points-panel">
+              <div>
+                <span className="eyebrow">שלב 2</span>
                 <h2>כמה נקודות לתת לכל המנצחים?</h2>
-                <p>הניקוד שייבחר כאן יחול על כל מי שסומן כמנצח במחזור הזה.</p>
-                <div className="global-points-buttons">
-                  {[1, 2, 3].map(n => (
-                    <button
-                      type="button"
-                      key={n}
-                      className={roundPoints === n ? 'selected' : ''}
-                      onClick={() => toggleRoundPoints(n)}
-                    >{n}</button>
-                  ))}
-                </div>
-                <small className="helper">לחיצה חוזרת על אותו מספר מבטלת את הבחירה</small>
-                <div className="summary-line">נבחרו {selectedWinnerCount} מנצחים {roundPoints ? `• ${roundPoints} נק׳ לכל אחד` : ''}</div>
+                <p>הניקוד שנבחר יחול על כל השחקנים שסומנו כמנצחים במחזור הזה.</p>
               </div>
+              <div className="global-score-buttons" role="group" aria-label="ניקוד לכל המנצחים">
+                {[1, 2, 3].map(n => (
+                  <button
+                    type="button"
+                    key={n}
+                    aria-pressed={roundPoints === n}
+                    className={roundPoints === n ? 'selected' : ''}
+                    onClick={() => toggleRoundPoints(n)}
+                  >
+                    <b>{n}</b>
+                    <span>{n === 1 ? 'נקודה' : 'נקודות'}</span>
+                  </button>
+                ))}
+              </div>
+              <small className="points-hint">לחיצה נוספת על אותו ניקוד מבטלת את הבחירה.</small>
+            </div>
 
-              <div className="upload-fields">
+            <div className="card weekly-upload">
+              <div>
                 <span className="eyebrow">תמונת ניצחון שבועית</span>
+                <h2>זוכי מחזור {roundNumber || '—'}</h2>
+                <p>אפשר להעלות תמונה אחת לכל מחזור ולהוסיף כיתוב שיופיע בעמוד הראשי.</p>
+              </div>
+              <div className="upload-fields">
                 <input type="file" accept="image/*" onChange={e => setWinnerFile(e.target.files?.[0] || null)} />
                 <input type="text" placeholder="כיתוב, למשל: אלופי מחזור 8 🏆" value={winnerCaption} onChange={e => setWinnerCaption(e.target.value)} />
               </div>
@@ -816,7 +772,7 @@ function AdminPanel() {
           <section>
             <div className="section-title"><div><span className="eyebrow">ADMIN</span><h1>ניהול שחקנים</h1></div></div>
 
-            <form className="card add-player dark-card" onSubmit={addPlayer}>
+            <form className="card add-player" onSubmit={addPlayer}>
               <h2>הוסף שחקן</h2>
               <div className="form-grid">
                 <input type="text" placeholder="שם השחקן" value={newName} onChange={e => setNewName(e.target.value)} required />
@@ -826,7 +782,7 @@ function AdminPanel() {
               <button className="primary" disabled={busy}>{busy ? 'מוסיף…' : 'הוסף שחקן'}</button>
             </form>
 
-            <div className="card manage-list dark-card">
+            <div className="card manage-list">
               {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => (
                 <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
                   {editingPlayerId === p.id ? (
@@ -839,8 +795,18 @@ function AdminPanel() {
                         </div>
                       </div>
                       <div className="player-edit-fields">
-                        <input type="text" placeholder="שם השחקן" value={editName} onChange={e => setEditName(e.target.value)} />
-                        <input type="text" placeholder="שם קבוצה / תיאור (אופציונלי)" value={editTeam} onChange={e => setEditTeam(e.target.value)} />
+                        <input
+                          type="text"
+                          placeholder="שם השחקן"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                        />
+                        <input
+                          type="text"
+                          placeholder="שם קבוצה / תיאור (אופציונלי)"
+                          value={editTeam}
+                          onChange={e => setEditTeam(e.target.value)}
+                        />
                         <label className="edit-photo-field">
                           <span>החלפת תמונה (אופציונלי)</span>
                           <input type="file" accept="image/*" onChange={e => setEditPhoto(e.target.files?.[0] || null)} />
@@ -878,16 +844,16 @@ function AdminPanel() {
           <section>
             <div className="section-title"><div><span className="eyebrow">ADMIN</span><h1>היסטוריית מחזורים</h1></div></div>
             <div className="admin-round-grid">
-              {rounds.length === 0 ? <div className="empty card dark-card">עדיין אין מחזורים.</div> : rounds.map(r => {
+              {rounds.length === 0 ? <div className="empty card">עדיין אין מחזורים.</div> : rounds.map(r => {
                 const roundResults = results.filter(x => x.round_id === r.id)
                 return (
-                  <article className="card admin-round-card dark-card" key={r.id}>
+                  <article className="card admin-round-card" key={r.id}>
                     {r.winner_photo_url && <img src={r.winner_photo_url} alt="" />}
                     <div className="admin-round-body">
                       <div>
                         <span className="eyebrow">מחזור {r.round_number}</span>
                         <h3>{formatDate(r.round_date)}</h3>
-                        <p>{roundResults.length} מנצחים • {roundResults.reduce((s, x) => s + x.points, 0)} נקודות חולקו</p>
+                        <p>{roundResults.length} שחקנים • {roundResults.reduce((s, x) => s + x.points, 0)} נקודות חולקו</p>
                         {r.winner_caption && <small>{r.winner_caption}</small>}
                       </div>
                       <button className="secondary" onClick={() => loadRoundForEditing(r)}>ערוך מחזור</button>
