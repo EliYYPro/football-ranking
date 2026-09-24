@@ -1,45 +1,19 @@
-# Football Ranking App — V1
+# Football Ranking — V5 Update
 
-אפליקציית דירוג כדורגל בעברית, RTL, עם טבלה ציבורית + Admin.
+עדכון עיצוב ופונקציונליות ל־"טבלת ליגת ותיקי רמת אפעל" — עונת 2026/27.
 
-## מה כבר בפנים
-- טבלה ציבורית ממוינת אוטומטית לפי נקודות
-- תמונת שחקן, ניצחונות ונקודות
-- עמוד אישי לכל שחקן + היסטוריית מחזורים
-- Admin עם Login
-- הוספת שחקן ותמונה
-- הזנת 0–3 נקודות לכל שחקן בכל מחזור
-- היסטוריית מחזורים
-- מחיקת שחקנים
-- Demo mode אוטומטי כשאין Supabase
-- Responsive למובייל ומחשב
+## מה חדש
+- עיצוב כחול־שחור בסגנון אצטדיון.
+- כותרת חדשה + עונת 2026/27.
+- Top 3 כפודיום מודגש.
+- מקומות 4–5 מודגשים כ־Top 5.
+- עדכון מחזור חדש: מסמנים רק את המנצחים, ובוחרים ניקוד אחיד 1/2/3 לכל המנצחים.
+- בוטל שדה "נגד קבוצה".
+- נשמרה עריכת שחקנים מ־V4.
 
-## הפעלה מקומית
-1. התקן Node.js.
-2. בתיקיית הפרויקט:
-   npm install
-   npm run dev
-3. פתח את הכתובת שמופיעה ב-Terminal.
+## קבצים להחלפה ב־GitHub
+- `index.html`
+- `src/main.jsx`
+- `src/styles.css`
 
-## חיבור Supabase
-1. צור פרויקט חדש ב-Supabase.
-2. SQL Editor -> הדבק והריץ את `supabase-schema.sql`.
-3. Authentication -> Users -> צור את משתמש ה-Admin שלך עם Email + Password.
-4. העתק את UUID של המשתמש.
-5. SQL Editor -> הרץ:
-   insert into public.admins (user_id) values ('YOUR-USER-UUID');
-6. Project Settings / API -> העתק Project URL ואת ה-Publishable key.
-7. העתק `.env.example` ל-`.env` והכנס את הערכים.
-8. הפעל מחדש `npm run dev`.
-
-## Vercel
-- העלה את התיקייה ל-GitHub.
-- Import Project ב-Vercel.
-- הוסף Environment Variables:
-  VITE_SUPABASE_URL
-  VITE_SUPABASE_PUBLISHABLE_KEY
-- Deploy.
-
-## אבטחה
-ה-Publishable key מותר לשימוש בדפדפן; ההרשאות עצמן נאכפות ב-Supabase RLS. לעולם אין להכניס service_role key לקוד Frontend.
-Deployment trigger
+אין צורך לשנות את Supabase או את מבנה בסיס הנתונים.
