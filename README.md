@@ -1,13 +1,12 @@
-Football Ranking — V5B hero-only update
+Football Ranking App — V5C
 
-Prerequisite already completed:
-public/images/bg-top.png
+Fixes the hero background image not appearing.
 
-This update changes ONLY the top hero visual:
-- keeps the V5A layout and live text exactly as-is
-- uses bg-top.png only on the left side
-- hides the old CSS-built ball, VRA mark and fake stadium lights
-- crops the uploaded image so its baked-in right-side text is not shown
+Cause fixed:
+The V5B pseudo-element had an inset rule that collapsed its height to zero.
 
 Upload only:
-src/styles.css
+- src/styles.css
+
+The image path remains:
+- /images/bg-top.png
