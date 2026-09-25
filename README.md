@@ -1,65 +1,30 @@
-# Football Ranking — Team Builder V2
+Football Ranking — Team Builder V3
 
-This update is designed to be installed AFTER Team Builder V1.
+Run AFTER V2.
 
-## What changed
+Changes:
+- Adds a new step: number of teams (2 / 3 / 4)
+- Adds shirt-color selection: pink / blue / cyan / white; coach selects exactly the number of active teams
+- Renames team size to "כמות שחקנים פר קבוצה"
+- Team-balancing algorithm now works with 2, 3 or 4 teams
+- Uneven player counts remain supported; teams with an extra player are intentionally balanced to a lower average ability
+- "חלוקות שאושרו" renamed to "חלוקות ממחזורים קודמים"
+- Previous allocations can be edited or deleted from Team Builder history
+- Player management now has a calculated "דירוג שחקן" column
+- "נתוני יכולת" renamed to "נתונים"
+- Attendance selections show the order number (1, 2, 3...) next to each selected player
+- "צפה בנתונים" renamed to "צפייה בנתונים"
+- Overall ratings use color levels: green -> blue -> amber -> red
+- Public top navigation now includes "ראשי"
+- Public/archive team displays only show the colors actually used in that round
 
-### Player management (ADMIN only)
-- Private player ratings are now edited from `ניהול שחקנים`, not from the team-builder workflow.
-- The team-builder can only VIEW the ratings in a locked/read-only panel.
-- Rating labels were simplified:
-  - `מסירה / דיוק` -> `דיוק`
-  - `מהירות ותנועה` -> `מהירות`
-  - `פיזיות / סיבולת` -> `פיזיות`
-- Every 1–10 rating can now be changed with either the slider OR a numeric input. They stay synchronized.
-- First name + last name remain the player identity fields; the public site still displays one combined full name.
+INSTALL ORDER
+1. Supabase -> SQL Editor -> New query
+2. Run: supabase-team-builder-v3.sql
+3. After Success, upload to GitHub /src:
+   - main.jsx
+   - styles.css
+   - TeamBuilder.jsx
+4. Commit changes; Vercel deploys automatically.
 
-### Team builder workflow
-1. Round number + date are now Step 1.
-2. Attendance is Step 2.
-3. Preferred size (4 / 5 / 6 per team) is Step 3, after attendance.
-4. The screen now clearly shows:
-   - how many players were selected,
-   - target total for 4 teams,
-   - actual team sizes based on attendance,
-   - whether there are extra players or missing players versus the chosen target.
-5. Confirmed allocations store the round number.
-6. The next round defaults from the highest previously saved league/team-builder round so it does not go backwards.
-7. Extra-player balancing logic remains: larger teams are optimized toward a lower average ability.
-
-### Archives
-- ADMIN archive now has two tabs:
-  - `היסטוריית תמונות ניצחון`
-  - `היסטוריית חלוקה לקבוצות`
-- A new PUBLIC `/archive` page has the same two archive categories.
-- Public users can view confirmed team allocations, but NEVER private player ratings.
-- Winner photos are clickable and open large in a lightbox.
-- Recent winner photos on the home page are clickable again.
-
-### Round results
-- Winner-photo description/caption input was removed.
-- Saving a round clears the legacy winner caption; only the photo, round and date are used.
-
-## Install order
-
-### 1. Supabase
-Run ONLY the new migration:
-`supabase-team-builder-v2.sql`
-
-Supabase -> SQL Editor -> New query -> paste all -> Run.
-
-Do NOT run V1 again if it is already installed.
-
-### 2. GitHub
-Upload/replace these files inside `src/`:
-- `main.jsx`
-- `styles.css`
-- `TeamBuilder.jsx`
-
-Commit changes. Vercel deploys automatically.
-
-## Privacy
-`player_ratings` remains ADMIN-only. The public archive uses a dedicated safe database view that exposes only confirmed team allocations and public player name/photo.
-
-## Cost
-No paid AI/API is used. This continues to work with the existing free Supabase + Vercel setup, subject to their free-tier usage limits.
+No paid AI/API service is required.
