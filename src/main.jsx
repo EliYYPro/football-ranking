@@ -216,6 +216,7 @@ function Home() {
                 <div className="table-head">
                   <span>מקום</span>
                   <span>שחקן</span>
+                  <span className="trend-head">מגמה</span>
                   <span>ניצחונות</span>
                   <span>נקודות</span>
                 </div>
@@ -227,11 +228,12 @@ function Home() {
                     <span className="player">
                       <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
                       <span className="player-text">
-                        <span className="name-with-trend"><b>{p.name}</b><TrendArrow trend={trendMap[p.id]} /></span>
+                        <b>{p.name}</b>
                         {p.team_name && <small>{p.team_name}</small>}
                       </span>
                     </span>
-                    <span>{p.total_wins}</span>
+                    <span className="trend-col"><TrendArrow trend={trendMap[p.id]} /></span>
+                    <span className="wins-col">{p.total_wins}</span>
                     <strong>{p.total_points}</strong>
                   </Link>
                   )

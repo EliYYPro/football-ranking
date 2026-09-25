@@ -659,3 +659,105 @@ footer{color:#617d93}
     color:#9eb8cd !important;
   }
 }
+
+
+/* =========================================================
+   V5J — Dedicated ranking-trend column
+   Keeps the V5I mobile hero behavior and fixes arrow alignment.
+   ========================================================= */
+.table-head,
+.player-row{
+  grid-template-columns:90px minmax(220px,1fr) 80px 130px 110px !important;
+  column-gap:18px;
+}
+
+.trend-head,
+.trend-col,
+.wins-col{
+  text-align:center;
+  justify-self:center;
+}
+
+.trend-col{
+  width:44px;
+  min-width:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.trend-col .trend-arrow{
+  font-size:16px;
+  min-width:18px;
+}
+
+@media(max-width:900px){
+  .table-head,
+  .player-row{
+    grid-template-columns:70px minmax(170px,1fr) 56px 86px 78px !important;
+    column-gap:12px;
+  }
+}
+
+@media(max-width:720px){
+  .table-head,
+  .player-row{
+    grid-template-columns:46px minmax(0,1fr) 40px 50px 58px !important;
+    column-gap:8px;
+    padding:13px 10px !important;
+  }
+
+  .table-head{
+    font-size:12px !important;
+  }
+
+  .table-head span:nth-child(3){
+    font-size:0 !important;
+  }
+  .table-head span:nth-child(3)::after{
+    content:'↕';
+    font-size:14px;
+    color:#7f9db5;
+  }
+
+  /* Wins remain a dedicated column and no longer collide with trend arrows */
+  .table-head span:nth-child(4){
+    font-size:0 !important;
+  }
+  .table-head span:nth-child(4)::after{
+    content:'נצ׳';
+    font-size:12px;
+  }
+
+  .trend-col{
+    width:40px;
+    min-width:40px;
+  }
+
+  .trend-col .trend-arrow{
+    font-size:15px;
+  }
+
+  .wins-col{
+    min-width:50px;
+  }
+
+  .player{
+    gap:9px;
+  }
+
+  .player img{
+    width:40px;
+    height:40px;
+    flex:0 0 40px;
+  }
+
+  .player-text{
+    min-width:0;
+  }
+
+  .player-text b{
+    white-space:normal;
+    line-height:1.2;
+  }
+}
