@@ -121,9 +121,10 @@ footer{color:#617d93}
   left:0;
   top:0;
   bottom:0;
+  left:0;
   width:56%;
-  height:auto;
-  inset:auto auto 0 0;
+  height:100%;
+  inset:0 auto 0 0;
   border:0;
   border-radius:28px 0 0 28px;
   background-image:url('/images/bg-top.png');
