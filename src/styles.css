@@ -375,3 +375,104 @@ footer{color:#617d93}
     margin-right:0;
   }
 }
+
+/* =========================================================
+   V5G — clean full-width hero background
+   - text stays on the RIGHT
+   - removes the extra code border/frame
+   - uses the frame already baked into bg-top.png
+   ========================================================= */
+.hero{
+  min-height:360px;
+  padding:42px 56px;
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  overflow:hidden;
+  isolation:isolate;
+
+  /* The uploaded image already has its own frame and dark fade */
+  background-image:url('/images/bg-top.png') !important;
+  background-repeat:no-repeat !important;
+  background-size:100% 100% !important;
+  background-position:center center !important;
+
+  /* Remove the second frame created by the site CSS */
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+.hero:before,
+.hero:after{
+  content:none !important;
+  display:none !important;
+}
+
+.hero-copy{
+  position:relative;
+  z-index:3;
+  width:48%;
+  max-width:540px;
+  margin-left:auto !important;
+  margin-right:0 !important;
+  text-align:right;
+  direction:rtl;
+}
+
+.hero-visual,
+.stadium-lights{
+  display:none !important;
+}
+
+.hero-kicker{
+  margin-right:0;
+  margin-left:auto;
+}
+
+.hero h1{
+  text-align:right;
+  text-shadow:0 5px 18px rgba(0,0,0,.55);
+}
+
+.season-ribbon{
+  margin-right:0;
+}
+
+.hero p{
+  text-align:right;
+  color:#b9d5eb;
+  text-shadow:0 2px 9px rgba(0,0,0,.5);
+}
+
+@media(max-width:900px){
+  .hero{
+    min-height:330px;
+    padding:34px 38px;
+    background-size:cover !important;
+    background-position:center center !important;
+  }
+  .hero-copy{
+    width:52%;
+    max-width:52%;
+  }
+}
+
+@media(max-width:720px){
+  .hero{
+    min-height:390px;
+    padding:26px 20px;
+    align-items:flex-end;
+    background-size:cover !important;
+    background-position:left center !important;
+  }
+  .hero-copy{
+    width:100%;
+    max-width:100%;
+    margin:0 !important;
+    padding:18px;
+    border-radius:18px;
+    background:linear-gradient(180deg,rgba(2,7,13,.12),rgba(2,7,13,.78));
+  }
+}
