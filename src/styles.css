@@ -915,3 +915,37 @@ footer{color:#617d93}
   .tb-history-row,.tb-history-row.head{grid-template-columns:52px 1fr 58px 70px!important}.tb-history-row>span:nth-child(4),.tb-history-row.head>span:nth-child(4),.tb-history-row>span:nth-child(5),.tb-history-row.head>span:nth-child(5){display:none!important}.tb-history-row>button{grid-column:1/-1;width:100%}.tb-admin-history-summary{grid-template-columns:1fr 80px 32px}.tb-admin-history-summary>span:nth-child(3),.tb-admin-history-summary>span:nth-child(4){display:none}
   .admin-history-title{align-items:flex-start!important}
 }
+
+/* =========================================================
+   TEAM BUILDER V3
+   Variable team count/colors, selection order, rating colors
+   ========================================================= */
+.topbar-actions{display:flex;align-items:center;gap:9px}.home-link,.archive-link{color:#9fc7e7;font-weight:700;padding:9px 12px;border-radius:999px;border:1px solid transparent}.home-link:hover,.archive-link:hover{border-color:#285b80;background:#0a1b2a;color:#fff}
+
+/* Player management: add calculated rating column */
+.manage-list-v3{padding:0 22px 8px}.manage-list-v3 .manage-list-head{display:grid!important;grid-template-columns:minmax(220px,1fr) 112px 88px minmax(270px,auto)!important;gap:14px;align-items:center;padding:12px 0!important;border-top:0!important;border-bottom:1px solid #21445d!important;color:#7697b0;font-size:12px;font-weight:800}.manage-list-v3>div:not(.manage-list-head):not(.editing-row){grid-template-columns:minmax(220px,1fr) 112px 88px minmax(270px,auto)!important}.player-rating-badge{justify-self:center;min-width:58px;padding:8px 10px;border-radius:12px;text-align:center;font-weight:900;border:1px solid transparent}.rating-elite{background:#103d27!important;border-color:#2aa55d!important;color:#75f0a9!important}.rating-strong{background:#0d334a!important;border-color:#2386b9!important;color:#78d5ff!important}.rating-medium{background:#443414!important;border-color:#b48a28!important;color:#ffd776!important}.rating-low{background:#431820!important;border-color:#a93c4c!important;color:#ff8e9b!important}.rating-missing{background:#151f2a!important;border-color:#34485b!important;color:#8399aa!important}
+
+/* Attendance selection order */
+.tb-player-row{grid-template-columns:38px 34px 54px minmax(180px,1fr) 105px 135px!important}.tb-selection-order{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:#0b2030;border:1px solid #28506b;color:#6f8ca2;font-size:12px;font-weight:900;opacity:.28}.tb-selection-order.visible{opacity:1;background:#159be8;border-color:#75d0ff;color:#03101d;box-shadow:0 0 18px #159be84d}.tb-overall.rating-elite b{color:#75f0a9!important}.tb-overall.rating-strong b{color:#78d5ff!important}.tb-overall.rating-medium b{color:#ffd776!important}.tb-overall.rating-low b{color:#ff8e9b!important}
+
+/* Steps 3-5 */
+.tb-color-step{padding:20px 22px;margin-bottom:18px}.tb-color-step h2{margin:4px 0;color:#fff}.tb-color-step p{margin:4px 0 14px;color:#7d9ab1}.tb-color-buttons{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.tb-color-buttons button{min-height:56px;border-radius:14px;border:2px solid transparent;font-weight:900;cursor:pointer;opacity:.42;filter:saturate(.65);transition:.16s}.tb-color-buttons button.selected{opacity:1;filter:none;transform:translateY(-1px);box-shadow:0 9px 22px #0004}.tb-color-buttons .team-pink{background:#fa419f;color:#210711}.tb-color-buttons .team-blue{background:#1598eb;color:#03101d}.tb-color-buttons .team-cyan{background:#59d8ec;color:#031115}.tb-color-buttons .team-white{background:#ecf3f8;color:#0b1823}.tb-color-buttons .team-pink.selected{border-color:#ff9bcb}.tb-color-buttons .team-blue.selected{border-color:#86d4ff}.tb-color-buttons .team-cyan.selected{border-color:#baf5ff}.tb-color-buttons .team-white.selected{border-color:#fff}.tb-color-hint{display:block;margin-top:10px;color:#7594aa}.tb-team-count-buttons button{font-size:18px}
+
+/* Dynamic 2/3/4 team result grid */
+.tb-team-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important}
+
+/* Saved allocations actions */
+.tb-history-actions{display:flex;justify-content:flex-end;gap:7px}.tb-history-actions button{min-width:62px}.tb-history-row{grid-template-columns:.55fr 1.15fr .7fr .65fr .7fr 150px!important}.tb-history-row.head{grid-template-columns:.55fr 1.15fr .7fr .65fr .7fr 150px!important}
+
+@media(max-width:900px){
+  .manage-list-v3 .manage-list-head{grid-template-columns:minmax(180px,1fr) 90px 70px minmax(230px,auto)!important}.manage-list-v3>div:not(.manage-list-head):not(.editing-row){grid-template-columns:minmax(180px,1fr) 90px 70px minmax(230px,auto)!important}
+  .tb-color-buttons{grid-template-columns:repeat(2,1fr)}
+}
+
+@media(max-width:720px){
+  .topbar-actions{gap:3px}.home-link,.archive-link,.admin-link{font-size:12px;padding:7px 8px}
+  .manage-list-v3{padding:0 12px 8px}.manage-list-v3 .manage-list-head{display:none!important}.manage-list-v3>div:not(.editing-row){grid-template-columns:1fr 66px 62px!important;gap:9px!important}.manage-list-v3 .manage-actions{grid-column:1/-1!important;justify-content:flex-start}.player-rating-badge{min-width:52px;padding:7px 6px}
+  .tb-player-row{grid-template-columns:30px 30px 44px 1fr 68px!important;padding:10px 10px!important;gap:7px!important}.tb-player-row>button{grid-column:4/6!important;width:100%}.tb-player-row>img{width:42px;height:42px}.tb-selection-order{width:25px;height:25px;font-size:11px}
+  .tb-color-buttons{grid-template-columns:1fr 1fr}.tb-color-buttons button{min-height:50px}
+  .tb-history-row,.tb-history-row.head{grid-template-columns:52px 1fr 54px 120px!important}.tb-history-row>span:nth-child(3),.tb-history-row.head>span:nth-child(3),.tb-history-row>span:nth-child(5),.tb-history-row.head>span:nth-child(5){display:none!important}.tb-history-actions{grid-column:1/-1;justify-content:stretch}.tb-history-actions button{flex:1}.tb-history-row.head>span:last-child{display:none}
+}

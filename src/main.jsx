@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS } from './TeamBuilder'
+import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass } from './TeamBuilder'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
@@ -72,6 +72,7 @@ function Shell({ children }) {
       <header className="topbar">
         <Link to="/" className="brand"><LeagueLogo /></Link>
         <nav className="topbar-actions">
+          <Link to="/" className="home-link">ראשי</Link>
           <Link to="/archive" className="archive-link">ארכיון</Link>
           <Link to="/admin" className="admin-link">Admin</Link>
         </nav>
@@ -171,7 +172,7 @@ function PublicArchive() {
                     <span>{session.selected_count} שחקנים</span>
                   </div>
                   <div className="public-team-grid">
-                    {TEAM_COLORS.map(team => (
+                    {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                       <div className={`public-team-card team-${team.key}`} key={team.key}>
                         <div className="public-team-card-head">{team.emoji} {team.name}</div>
                         {rows.filter(r => r.team_color === team.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(row => (
@@ -920,8 +921,11 @@ function AdminPanel() {
               <button className="primary" disabled={busy}>{busy ? 'מוסיף…' : 'הוסף שחקן'}</button>
             </form>
 
-            <div className="card manage-list">
-              {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => (
+            <div className="card manage-list manage-list-v3">
+              {players.length > 0 && <div className="manage-list-head"><span>שחקן</span><span>דירוג שחקן</span><span>סטטוס</span><span>פעולות</span></div>}
+              {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => {
+                const playerOverall = overallRating(ratings[p.id])
+                return (
                 <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
                   {editingPlayerId === p.id ? (
                     <div className="player-edit-panel">
@@ -963,9 +967,10 @@ function AdminPanel() {
                         <img src={p.photo_url || avatarFallback(p.name)} alt="" />
                         <span className="player-text"><b>{p.name}</b></span>
                       </span>
+                      <span className={`player-rating-badge ${ratingLevelClass(playerOverall)}`}>{playerOverall ?? '—'}</span>
                       <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
-                        <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתוני יכולת</button>
+                        <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתונים</button>
                         <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
                         <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
                           {p.is_active ? 'הסתר' : 'החזר'}
@@ -974,7 +979,7 @@ function AdminPanel() {
                     </>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </section>
         )}

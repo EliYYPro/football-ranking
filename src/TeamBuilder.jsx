@@ -61,6 +61,15 @@ export function overallRating(rating) {
   return Math.round(score * 10) / 10
 }
 
+export function ratingLevelClass(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 'rating-missing'
+  if (n >= 8.5) return 'rating-elite'
+  if (n >= 7) return 'rating-strong'
+  if (n >= 5.5) return 'rating-medium'
+  return 'rating-low'
+}
+
 function clampRating(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return 1
@@ -175,20 +184,21 @@ function evaluateTeams(teams, pairCounts) {
   return { objective, balanceScore, metrics }
 }
 
-function capacitiesFor(count) {
-  const base = Math.floor(count / 4)
-  const remainder = count % 4
-  return [0, 1, 2, 3].map(i => base + (i < remainder ? 1 : 0))
+function capacitiesFor(count, teamCount) {
+  const safeTeamCount = Math.max(2, Math.min(4, Number(teamCount) || 4))
+  const base = Math.floor(count / safeTeamCount)
+  const remainder = count % safeTeamCount
+  return Array.from({ length: safeTeamCount }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-function generateBalancedTeams(selectedPlayers, pairCounts) {
-  const baseCaps = capacitiesFor(selectedPlayers.length)
+function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
+  const baseCaps = capacitiesFor(selectedPlayers.length, activeTeams.length)
   let best = null
 
   for (let attempt = 0; attempt < 7000; attempt += 1) {
     const caps = shuffled(baseCaps)
     const pool = shuffled(selectedPlayers)
-    const teams = TEAM_COLORS.map(() => [])
+    const teams = activeTeams.map(() => [])
     let cursor = 0
 
     caps.forEach((capacity, teamIndex) => {
@@ -245,7 +255,7 @@ export function RatingEditor({ player, initialRating, onClose, onSaved = () => {
         <div className="rating-panel-head">
           <div>
             <span className="eyebrow">{readOnly ? 'ADMIN • צפייה בלבד' : 'מידע פרטי למאמן'}</span>
-            <h2>נתוני שחקן</h2>
+            <h2>נתונים</h2>
           </div>
           <button type="button" className="tb-icon-button" onClick={onClose}>✕</button>
         </div>
@@ -358,7 +368,7 @@ export function TeamHistoryPanel({ players = [] }) {
             </button>
             {expandedId === session.id && (
               <div className="tb-archive-team-grid">
-                {TEAM_COLORS.map(team => (
+                {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                   <div className={`tb-archive-team team-${team.key}`} key={team.key}>
                     <b>{team.emoji} {team.name}</b>
                     {rows.filter(r => r.team_color === team.key).sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).map(row => {
@@ -382,6 +392,8 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [selectedIds, setSelectedIds] = useState([])
+  const [teamCount, setTeamCount] = useState(4)
+  const [selectedColorKeys, setSelectedColorKeys] = useState(TEAM_COLORS.map(t => t.key))
   const [preferredSize, setPreferredSize] = useState(5)
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10))
   const [roundNumber, setRoundNumber] = useState(1)
@@ -392,6 +404,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [editingSessionId, setEditingSessionId] = useState(null)
 
   async function loadPrivateData() {
     setLoading(true)
@@ -440,9 +453,33 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     return activePlayers.filter(p => fullName(p).toLowerCase().includes(q))
   }, [activePlayers, search])
 
-  const desiredTotal = preferredSize * 4
-  const actualCaps = capacitiesFor(selectedPlayers.length)
+  const activeTeamDefs = useMemo(() => TEAM_COLORS.filter(t => selectedColorKeys.includes(t.key)).slice(0, teamCount), [selectedColorKeys, teamCount])
+  const desiredTotal = preferredSize * teamCount
+  const actualCaps = capacitiesFor(selectedPlayers.length, teamCount)
   const extraVsTarget = selectedPlayers.length - desiredTotal
+
+  function changeTeamCount(nextCount) {
+    const count = Number(nextCount)
+    setTeamCount(count)
+    setSelectedColorKeys(prev => {
+      const kept = TEAM_COLORS.filter(t => prev.includes(t.key)).map(t => t.key).slice(0, count)
+      const missing = TEAM_COLORS.map(t => t.key).filter(key => !kept.includes(key))
+      return [...kept, ...missing.slice(0, Math.max(0, count - kept.length))]
+    })
+    setDraftTeams(null)
+    setBalanceScore(null)
+    setEditingSessionId(null)
+  }
+
+  function toggleTeamColor(key) {
+    setSelectedColorKeys(prev => {
+      if (prev.includes(key)) return prev.filter(x => x !== key)
+      if (prev.length >= teamCount) return prev
+      return [...prev, key]
+    })
+    setDraftTeams(null)
+    setBalanceScore(null)
+  }
 
   function togglePlayer(id) {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -452,8 +489,13 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
   function generate() {
     setMessage('')
-    if (selectedPlayers.length < 8) {
-      setMessage('שגיאה: צריך לבחור לפחות 8 שחקנים כדי ליצור 4 קבוצות.')
+    if (activeTeamDefs.length !== teamCount) {
+      setMessage(`שגיאה: צריך לבחור בדיוק ${teamCount} צבעי קבוצות.`)
+      return
+    }
+
+    if (selectedPlayers.length < teamCount) {
+      setMessage(`שגיאה: צריך לבחור לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`)
       return
     }
 
@@ -464,27 +506,27 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     }
 
     const enriched = selectedPlayers.map(p => ({ ...p, rating: ratings[p.id], overall: overallRating(ratings[p.id]) }))
-    const result = generateBalancedTeams(enriched, pairCounts)
+    const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs)
     if (!result) {
       setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
       return
     }
 
-    setDraftTeams(Object.fromEntries(TEAM_COLORS.map((team, i) => [team.key, result.teams[i]])))
+    setDraftTeams(Object.fromEntries(activeTeamDefs.map((team, i) => [team.key, result.teams[i]])))
     setBalanceScore(result.evaluation.balanceScore)
   }
 
   function recalc(nextTeams) {
-    const arrays = TEAM_COLORS.map(t => nextTeams[t.key] || [])
+    const arrays = activeTeamDefs.map(t => nextTeams[t.key] || [])
     const result = evaluateTeams(arrays, pairCounts)
     setBalanceScore(result.balanceScore)
   }
 
   function movePlayer(playerId, targetColor) {
     if (!draftTeams) return
-    const next = Object.fromEntries(TEAM_COLORS.map(t => [t.key, [...(draftTeams[t.key] || [])]]))
+    const next = Object.fromEntries(activeTeamDefs.map(t => [t.key, [...(draftTeams[t.key] || [])]]))
     let moving = null
-    TEAM_COLORS.forEach(t => {
+    activeTeamDefs.forEach(t => {
       const index = next[t.key].findIndex(p => p.id === playerId)
       if (index >= 0) moving = next[t.key].splice(index, 1)[0]
     })
@@ -510,30 +552,58 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       setMessage('שגיאה: מספר המחזור אינו תקין.')
       return
     }
-
-    const { data: duplicate } = await supabase.from('training_sessions').select('id').eq('round_number', number).maybeSingle()
-    if (duplicate) {
+    if (activeTeamDefs.length !== teamCount) {
       setSaving(false)
-      setMessage(`שגיאה: כבר נשמרה חלוקת כוחות למחזור ${number}. אפשר לצפות בה בארכיון.`)
+      setMessage(`שגיאה: צריך לבחור בדיוק ${teamCount} צבעי קבוצות.`)
       return
     }
 
-    const { data: session, error: sessionError } = await supabase.from('training_sessions').insert({
+    let duplicateQuery = supabase.from('training_sessions').select('id').eq('round_number', number)
+    if (editingSessionId) duplicateQuery = duplicateQuery.neq('id', editingSessionId)
+    const { data: duplicate } = await duplicateQuery.maybeSingle()
+    if (duplicate) {
+      setSaving(false)
+      setMessage(`שגיאה: כבר נשמרה חלוקת כוחות למחזור ${number}.`)
+      return
+    }
+
+    const sessionPayload = {
       round_number: number,
       session_date: sessionDate,
       preferred_team_size: preferredSize,
+      team_count: teamCount,
+      selected_team_colors: activeTeamDefs.map(t => t.key),
       selected_count: selectedPlayers.length,
       balance_score: balanceScore,
       status: 'confirmed',
-    }).select().single()
-
-    if (sessionError) {
-      setSaving(false)
-      setMessage(`שגיאה: ${sessionError.message}`)
-      return
     }
 
-    const rows = TEAM_COLORS.flatMap(team => (draftTeams[team.key] || []).map((player, index) => ({
+    let session = null
+    if (editingSessionId) {
+      const { data, error } = await supabase.from('training_sessions').update(sessionPayload).eq('id', editingSessionId).select().single()
+      if (error) {
+        setSaving(false)
+        setMessage(`שגיאה: ${error.message}`)
+        return
+      }
+      session = data
+      const { error: deleteAssignmentsError } = await supabase.from('training_assignments').delete().eq('session_id', editingSessionId)
+      if (deleteAssignmentsError) {
+        setSaving(false)
+        setMessage(`שגיאה: ${deleteAssignmentsError.message}`)
+        return
+      }
+    } else {
+      const { data, error } = await supabase.from('training_sessions').insert(sessionPayload).select().single()
+      if (error) {
+        setSaving(false)
+        setMessage(`שגיאה: ${error.message}`)
+        return
+      }
+      session = data
+    }
+
+    const rows = activeTeamDefs.flatMap(team => (draftTeams[team.key] || []).map((player, index) => ({
       session_id: session.id,
       player_id: player.id,
       team_color: team.key,
@@ -542,24 +612,45 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
     const { error: assignmentError } = await supabase.from('training_assignments').insert(rows)
     if (assignmentError) {
-      await supabase.from('training_sessions').delete().eq('id', session.id)
       setSaving(false)
       setMessage(`שגיאה: ${assignmentError.message}`)
       return
     }
 
-    setMessage(`חלוקת מחזור ${number} אושרה ונשמרה בהיסטוריה ✅`)
+    const wasEditing = Boolean(editingSessionId)
+    setMessage(wasEditing ? `חלוקת מחזור ${number} עודכנה בהצלחה ✅` : `חלוקת מחזור ${number} אושרה ונשמרה בהיסטוריה ✅`)
     setSaving(false)
     setDraftTeams(null)
     setBalanceScore(null)
     setSelectedIds([])
+    setEditingSessionId(null)
     await loadPrivateData()
-    setRoundNumber(number + 1)
+    if (!wasEditing) setRoundNumber(number + 1)
+  }
+
+  async function deleteSavedSession(session) {
+    if (!window.confirm(`למחוק את חלוקת מחזור ${session.round_number || '—'}? הפעולה אינה הפיכה.`)) return
+    const { error } = await supabase.from('training_sessions').delete().eq('id', session.id)
+    if (error) {
+      setMessage(`שגיאה: ${error.message}`)
+      return
+    }
+    if (editingSessionId === session.id) {
+      setEditingSessionId(null)
+      setDraftTeams(null)
+      setSelectedIds([])
+      setBalanceScore(null)
+    }
+    setMessage(`חלוקת מחזור ${session.round_number || '—'} נמחקה.`)
+    await loadPrivateData()
   }
 
   function loadSavedSession(session) {
     const rows = assignments.filter(a => a.session_id === session.id)
-    const nextTeams = Object.fromEntries(TEAM_COLORS.map(t => [t.key, []]))
+    const savedColors = TEAM_COLORS.filter(t => rows.some(r => r.team_color === t.key)).map(t => t.key)
+    const savedTeamCount = Number(session.team_count || savedColors.length || 4)
+    const finalColors = savedColors.length ? savedColors : TEAM_COLORS.slice(0, savedTeamCount).map(t => t.key)
+    const nextTeams = Object.fromEntries(finalColors.map(key => [key, []]))
     rows.sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).forEach(row => {
       const player = activePlayers.find(p => p.id === row.player_id)
       if (!player || !nextTeams[row.team_color]) return
@@ -567,18 +658,22 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     })
     setDraftTeams(nextTeams)
     setSelectedIds(rows.map(r => r.player_id))
+    setTeamCount(savedTeamCount)
+    setSelectedColorKeys(finalColors)
     setPreferredSize(session.preferred_team_size)
     setSessionDate(session.session_date)
     setRoundNumber(session.round_number || nextRoundNumber)
     setBalanceScore(Number(session.balance_score || 0))
-    setMessage('נטענה חלוקה שמורה לצפייה. אישור מחדש ייחסם כדי לא ליצור כפילות למחזור.')
+    setEditingSessionId(session.id)
+    setMessage(`חלוקת מחזור ${session.round_number || '—'} נטענה לעריכה. לאחר השינויים לחץ על אישור ושמירה.`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
 
   return (
     <section className="team-builder">
       <div className="section-title tb-title">
-        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, קבע יעד של 4/5/6 שחקנים לקבוצה וצור חלוקה מאוזנת.</p></div>
+        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, בחר כמה קבוצות וצבעים, קבע כמות שחקנים פר קבוצה וצור חלוקה מאוזנת.</p></div>
       </div>
 
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
@@ -601,13 +696,15 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           const rating = ratings[player.id]
           const overall = overallRating(rating)
           const position = POSITION_OPTIONS.find(([value]) => value === rating?.preferred_position)?.[1]
+          const selectionIndex = selectedIds.indexOf(player.id) + 1
           return (
             <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''}`} key={player.id}>
               <label className="tb-check"><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
+              <span className={`tb-selection-order ${selectionIndex ? 'visible' : ''}`}>{selectionIndex || ''}</span>
               <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
               <div className="tb-player-name"><b>{fullName(player)}</b><small>{position || 'ללא עמדה'}</small></div>
-              <div className={`tb-overall ${overall ? '' : 'missing'}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
-              <button type="button" className="secondary" onClick={() => setViewRatingPlayer(player)}>צפה בנתונים 🔒</button>
+              <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
+              <button type="button" className="secondary" onClick={() => setViewRatingPlayer(player)}>צפייה בנתונים 🔒</button>
             </div>
           )
         })}
@@ -616,14 +713,43 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       <div className="card tb-controls tb-controls-after-attendance">
         <div>
           <span className="eyebrow">שלב 3</span>
-          <h2>גודל רצוי לקבוצה</h2>
+          <h2>כמות קבוצות</h2>
+          <div className="tb-size-buttons tb-team-count-buttons">
+            {[2, 3, 4].map(count => <button type="button" className={teamCount === count ? 'selected' : ''} key={count} onClick={() => changeTeamCount(count)}>{count}</button>)}
+          </div>
+        </div>
+        <div className="tb-selection-summary">
+          <b>נבחרו {selectedPlayers.length} שחקנים</b>
+          <span>{teamCount} קבוצות במשחק</span>
+        </div>
+      </div>
+
+      <div className="card tb-color-step">
+        <div>
+          <span className="eyebrow">שלב 4</span>
+          <h2>בחירת צבעי חולצות</h2>
+          <p>בחר בדיוק {teamCount} צבעים מתוך ארבעת צבעי המדים.</p>
+        </div>
+        <div className="tb-color-buttons">
+          {TEAM_COLORS.map(team => {
+            const selected = selectedColorKeys.includes(team.key)
+            return <button type="button" key={team.key} className={`team-${team.key} ${selected ? 'selected' : ''}`} onClick={() => toggleTeamColor(team.key)}>{team.emoji} {team.name}</button>
+          })}
+        </div>
+        <small className="tb-color-hint">נבחרו {selectedColorKeys.length} מתוך {teamCount}</small>
+      </div>
+
+      <div className="card tb-controls tb-controls-after-attendance">
+        <div>
+          <span className="eyebrow">שלב 5</span>
+          <h2>כמות שחקנים פר קבוצה</h2>
           <div className="tb-size-buttons">
             {[4, 5, 6].map(size => <button type="button" className={preferredSize === size ? 'selected' : ''} key={size} onClick={() => { setPreferredSize(size); setDraftTeams(null); setBalanceScore(null) }}>{size}</button>)}
           </div>
         </div>
         <div className="tb-selection-summary">
           <b>נבחרו {selectedPlayers.length} שחקנים</b>
-          <span>יעד: 4 קבוצות × {preferredSize} = {desiredTotal} שחקנים</span>
+          <span>יעד: {teamCount} קבוצות × {preferredSize} = {desiredTotal} שחקנים</span>
           <small>בפועל לפי הנוכחות: {actualCaps.join(' / ')} שחקנים בקבוצות</small>
           {extraVsTarget > 0 && <em>יש {extraVsTarget} שחקני אקסטרה — הקבוצות הגדולות יקבלו ממוצע יכולת נמוך יותר.</em>}
           {extraVsTarget < 0 && <em>חסרים {Math.abs(extraVsTarget)} שחקנים ליעד שבחרת; עדיין אפשר ליצור חלוקה לפי מי שהגיע.</em>}
@@ -643,7 +769,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           </div>
 
           <div className="tb-team-grid">
-            {TEAM_COLORS.map(team => {
+            {activeTeamDefs.map(team => {
               const teamPlayers = draftTeams[team.key] || []
               const avg = teamPlayers.length ? Math.round(average(teamPlayers.map(p => p.overall)) * 10) / 10 : 0
               return (
@@ -655,7 +781,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
                         <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
                         <span><b>{fullName(player)}</b><small>{player.overall}</small></span>
                         <select aria-label={`העבר את ${fullName(player)} לקבוצה`} value={team.key} onChange={e => movePlayer(player.id, e.target.value)}>
-                          {TEAM_COLORS.map(option => <option key={option.key} value={option.key}>{option.name}</option>)}
+                          {activeTeamDefs.map(option => <option key={option.key} value={option.key}>{option.name}</option>)}
                         </select>
                       </div>
                     ))}
@@ -669,24 +795,27 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
           <div className="tb-results-actions">
             <button type="button" className="secondary" onClick={generate}>↻ צור חלוקה אחרת</button>
-            <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : '✓ אישור ושמירת החלוקה'}</button>
+            <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : editingSessionId ? '✓ שמירת השינויים' : '✓ אישור ושמירת החלוקה'}</button>
           </div>
         </div>
       )}
 
       <div className="card tb-history">
-        <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות שאושרו</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
+        <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות ממחזורים קודמים</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
         {!sessions.length ? <div className="empty">עדיין לא נשמרה חלוקת כוחות.</div> : (
           <div className="tb-history-table">
-            <div className="tb-history-row head"><span>מחזור</span><span>תאריך</span><span>שחקנים</span><span>יעד</span><span>איזון</span><span /></div>
+            <div className="tb-history-row head"><span>מחזור</span><span>תאריך</span><span>שחקנים</span><span>קבוצות</span><span>איזון</span><span>פעולות</span></div>
             {sessions.map(session => (
               <div className="tb-history-row" key={session.id}>
                 <span>{session.round_number || '—'}</span>
                 <span>{new Intl.DateTimeFormat('he-IL').format(new Date(`${session.session_date}T12:00:00`))}</span>
                 <span>{session.selected_count}</span>
-                <span>{session.preferred_team_size}</span>
+                <span>{session.team_count || new Set(assignments.filter(a => a.session_id === session.id).map(a => a.team_color)).size || 4}</span>
                 <span>{session.balance_score ? `${session.balance_score}%` : '—'}</span>
-                <button type="button" className="secondary" onClick={() => loadSavedSession(session)}>צפה</button>
+                <span className="tb-history-actions">
+                  <button type="button" className="secondary" onClick={() => loadSavedSession(session)}>ערוך</button>
+                  <button type="button" className="danger soft" onClick={() => deleteSavedSession(session)}>מחק</button>
+                </span>
               </div>
             ))}
           </div>
