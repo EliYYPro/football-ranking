@@ -476,3 +476,186 @@ footer{color:#617d93}
     background:linear-gradient(180deg,rgba(2,7,13,.12),rgba(2,7,13,.78));
   }
 }
+
+/* =========================================================
+   V5H — hero alignment + single-frame fix
+   - hero outer width now matches the cards below exactly
+   - crops the border/black matte baked into bg-top.png
+   - uses ONE CSS frame only
+   - keeps live text on the right
+   ========================================================= */
+.hero{
+  width:100% !important;
+  margin:0 !important;
+  min-height:360px;
+  padding:42px 56px;
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  overflow:hidden;
+  isolation:isolate;
+
+  /* Zoom slightly so the frame + black matte inside the image are cropped away. */
+  background-image:url('/images/bg-top.png') !important;
+  background-repeat:no-repeat !important;
+  background-size:108% auto !important;
+  background-position:center center !important;
+
+  /* One frame only, aligned with the other cards. */
+  border:1px solid #235d8b !important;
+  border-radius:28px !important;
+  box-shadow:none !important;
+  background-color:#07111d !important;
+}
+
+.hero:before,
+.hero:after{
+  content:none !important;
+  display:none !important;
+}
+
+.hero-copy{
+  position:relative;
+  z-index:3;
+  width:48%;
+  max-width:540px;
+  margin-left:auto !important;
+  margin-right:0 !important;
+  text-align:right !important;
+  direction:rtl;
+}
+
+.hero-kicker,
+.hero h1,
+.season-ribbon,
+.hero p{
+  position:relative;
+  z-index:3;
+}
+
+.hero h1,
+.hero p{
+  text-align:right !important;
+}
+
+.hero-visual,
+.stadium-lights{
+  display:none !important;
+}
+
+@media(max-width:900px){
+  .hero{
+    min-height:330px;
+    padding:34px 38px;
+    background-size:112% auto !important;
+    background-position:center center !important;
+  }
+  .hero-copy{
+    width:52%;
+    max-width:52%;
+  }
+}
+
+@media(max-width:720px){
+  .hero{
+    min-height:390px;
+    padding:26px 20px;
+    align-items:flex-end;
+    background-size:auto 108% !important;
+    background-position:left center !important;
+  }
+  .hero-copy{
+    width:100%;
+    max-width:100%;
+    margin:0 !important;
+    padding:18px;
+    border-radius:18px;
+    background:linear-gradient(180deg,rgba(2,7,13,.12),rgba(2,7,13,.78));
+  }
+}
+
+/* =========================================================
+   V5I — Mobile hero redesign
+   Keeps V5H desktop/tablet fixes, but on phones the hero is
+   stacked: image on top, text below. No text over the ball.
+   ========================================================= */
+@media(max-width:720px){
+  .hero{
+    min-height:0 !important;
+    padding:0 !important;
+    display:block !important;
+    overflow:hidden !important;
+    border:1px solid #235d8b !important;
+    border-radius:28px !important;
+    background:#07111d !important;
+  }
+
+  /* dedicated image zone */
+  .hero:before{
+    content:'' !important;
+    display:block !important;
+    position:relative !important;
+    inset:auto !important;
+    width:100% !important;
+    height:235px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background-image:url('/images/bg-top.png') !important;
+    background-repeat:no-repeat !important;
+    background-size:auto 100% !important;
+    background-position:left center !important;
+    box-shadow:none !important;
+    transform:none !important;
+    z-index:0 !important;
+  }
+
+  .hero:after{
+    content:none !important;
+    display:none !important;
+  }
+
+  /* text becomes a clean panel below the image */
+  .hero-copy{
+    position:relative !important;
+    z-index:2 !important;
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:22px 22px 24px !important;
+    border-radius:0 !important;
+    background:linear-gradient(180deg,#07111d 0%,#081522 100%) !important;
+    text-align:right !important;
+    direction:rtl !important;
+  }
+
+  .hero-kicker{
+    margin:0 0 12px auto !important;
+    font-size:12px !important;
+    padding:6px 11px !important;
+  }
+
+  .hero h1{
+    font-size:35px !important;
+    line-height:1.02 !important;
+    margin:0 0 14px !important;
+    letter-spacing:-1px !important;
+    transform:none !important;
+    text-align:right !important;
+  }
+
+  .season-ribbon{
+    font-size:19px !important;
+    padding:7px 18px !important;
+    margin:0 0 14px !important;
+    transform:skew(-7deg) !important;
+  }
+
+  .hero p{
+    margin:0 !important;
+    font-size:13px !important;
+    line-height:1.45 !important;
+    text-align:right !important;
+    color:#9eb8cd !important;
+  }
+}
