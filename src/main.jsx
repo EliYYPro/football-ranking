@@ -828,6 +828,7 @@ function AdminPanel() {
         <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>👥 ניהול שחקנים</button>
         <button className={tab === 'teams' ? 'active' : ''} onClick={() => setTab('teams')}>⚖️ חלוקת כוחות</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>🕘 היסטוריה</button>
+        <button className="admin-home-button" onClick={() => navigate('/')}>⌂ חזרה למסך הראשי</button>
         <button onClick={logout}>↪ יציאה</button>
       </aside>
 
