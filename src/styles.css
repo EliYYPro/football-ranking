@@ -104,49 +104,46 @@ footer{color:#617d93}
 .trend-arrow.down{color:#ff6b6b}
 
 /* =========================================================
-   V5B — Custom hero image
-   Uses /public/images/bg-top.png as the LEFT visual only.
-   Existing live HTML text on the right stays unchanged.
+   V5D — Refined custom hero image
+   Fixes:
+   - removes the “frame inside frame” feel by zoom-cropping the image
+   - creates a softer blend into the live text area on the right
    ========================================================= */
 .hero{
-  background:linear-gradient(90deg,#06111d 0%,#06111d 42%,#07192b 100%);
+  background:linear-gradient(90deg,#04101b 0%,#051423 48%,#07192b 100%);
   isolation:isolate;
+  overflow:hidden;
 }
 
-/* Crop only the left/visual side of bg-top.png so the text baked
-   into the source image never appears behind the live site text. */
 .hero:before{
   content:'';
   position:absolute;
-  left:0;
-  top:0;
-  bottom:0;
-  left:0;
-  width:56%;
-  height:100%;
-  inset:0 auto 0 0;
+  inset:-2px auto -2px -2px;
+  width:60%;
   border:0;
-  border-radius:28px 0 0 28px;
+  border-radius:30px 0 0 30px;
   background-image:url('/images/bg-top.png');
   background-repeat:no-repeat;
   background-position:left center;
-  background-size:auto 100%;
+  background-size:cover;
   box-shadow:none;
   transform:none;
   z-index:0;
   pointer-events:none;
 }
 
-/* Soft blend between the photo and the live text area */
+/* stronger and smoother fade between the image and the dark text zone */
 .hero:after{
   content:'';
   position:absolute;
   inset:0;
   background:linear-gradient(90deg,
     rgba(3,9,16,0) 0%,
-    rgba(3,9,16,.08) 38%,
-    rgba(3,9,16,.78) 58%,
-    rgba(3,9,16,.96) 76%,
+    rgba(3,9,16,.03) 26%,
+    rgba(3,9,16,.14) 38%,
+    rgba(3,9,16,.38) 48%,
+    rgba(3,9,16,.72) 58%,
+    rgba(3,9,16,.92) 68%,
     rgba(3,9,16,.98) 100%);
   z-index:1;
   pointer-events:none;
@@ -155,10 +152,10 @@ footer{color:#617d93}
 .hero-copy{
   position:relative;
   z-index:3;
-  max-width:56%;
+  max-width:50%;
+  margin-right:auto;
 }
 
-/* Old CSS-built football/logo/lights are replaced by the new photo */
 .hero-visual,
 .stadium-lights{
   display:none !important;
@@ -166,7 +163,7 @@ footer{color:#617d93}
 
 @media(max-width:900px){
   .hero:before{width:62%}
-  .hero-copy{max-width:62%}
+  .hero-copy{max-width:54%}
 }
 
 @media(max-width:720px){
@@ -176,22 +173,24 @@ footer{color:#617d93}
     background:#06111d;
   }
   .hero:before{
+    inset:0;
     width:100%;
     border-radius:28px;
-    background-size:auto 100%;
+    background-size:cover;
     background-position:left center;
-    opacity:.52;
+    opacity:.42;
   }
   .hero:after{
     background:linear-gradient(180deg,
-      rgba(2,7,13,.34) 0%,
-      rgba(2,7,13,.68) 42%,
-      rgba(2,7,13,.96) 72%,
+      rgba(2,7,13,.28) 0%,
+      rgba(2,7,13,.62) 42%,
+      rgba(2,7,13,.93) 72%,
       rgba(2,7,13,.99) 100%);
   }
   .hero-copy{
     max-width:100%;
     width:100%;
     align-self:flex-end;
+    margin-right:0;
   }
 }
