@@ -1,13 +1,15 @@
-Football Ranking App — V5I
+Football Ranking App — V5J
 
-Use this INSTEAD of V5H.
-It includes the V5H desktop fixes plus a mobile-only hero redesign.
+This update fixes the ranking trend arrows in the standings table.
 
-Mobile hero changes:
-- image sits in its own top area
-- live text sits below it in a dark panel
-- no text is placed over the football
-- cleaner crop and spacing on narrow screens
+Changes:
+- Adds a dedicated trend column between Player and Wins
+- Trend arrows now stay vertically aligned in one fixed column
+- Adds a "מגמה" header on desktop
+- Uses a compact arrow symbol in the mobile header
+- Adds extra spacing so arrows never crowd the wins column
+- Keeps the V5I mobile hero fixes intact
 
-Only file to upload:
+Files to upload:
+- src/main.jsx
 - src/styles.css
