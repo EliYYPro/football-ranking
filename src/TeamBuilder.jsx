@@ -1,25 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 
-const TEAM_COLORS = [
+export const TEAM_COLORS = [
   { key: 'pink', name: 'ורוד', emoji: '🩷' },
   { key: 'blue', name: 'כחול', emoji: '🔵' },
   { key: 'cyan', name: 'תכלת', emoji: '🩵' },
   { key: 'white', name: 'לבן', emoji: '⚪' },
 ]
 
-const RATING_FIELDS = [
+export const RATING_FIELDS = [
   { key: 'technical', label: 'יכולת טכנית' },
-  { key: 'passing', label: 'מסירה / דיוק' },
-  { key: 'speed', label: 'מהירות ותנועה' },
+  { key: 'passing', label: 'דיוק' },
+  { key: 'speed', label: 'מהירות' },
   { key: 'attack', label: 'התקפה' },
   { key: 'defense', label: 'הגנה' },
-  { key: 'physical', label: 'פיזיות / סיבולת' },
+  { key: 'physical', label: 'פיזיות' },
   { key: 'game_iq', label: 'חוכמת משחק' },
   { key: 'goalkeeper', label: 'יכולת בשער' },
 ]
 
-const POSITION_OPTIONS = [
+export const POSITION_OPTIONS = [
   ['general', 'כללי'],
   ['goalkeeper', 'שוער'],
   ['defense', 'הגנה'],
@@ -27,7 +27,7 @@ const POSITION_OPTIONS = [
   ['attack', 'התקפה'],
 ]
 
-const emptyRating = {
+export const emptyRating = {
   technical: 5,
   passing: 5,
   speed: 5,
@@ -39,16 +39,16 @@ const emptyRating = {
   preferred_position: 'general',
 }
 
-function fullName(player) {
+export function fullName(player) {
   return player?.name || [player?.first_name, player?.last_name].filter(Boolean).join(' ') || 'שחקן'
 }
 
-function ratingComplete(rating) {
+export function ratingComplete(rating) {
   if (!rating) return false
   return RATING_FIELDS.every(({ key }) => Number(rating[key]) >= 1 && Number(rating[key]) <= 10)
 }
 
-function overallRating(rating) {
+export function overallRating(rating) {
   if (!ratingComplete(rating)) return null
   const score =
     Number(rating.technical) * 0.18 +
@@ -59,6 +59,12 @@ function overallRating(rating) {
     Number(rating.physical) * 0.10 +
     Number(rating.game_iq) * 0.18
   return Math.round(score * 10) / 10
+}
+
+function clampRating(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 1
+  return Math.max(1, Math.min(10, Math.round(n)))
 }
 
 function average(list) {
@@ -125,8 +131,8 @@ function evaluateTeams(teams, pairCounts) {
   const metrics = teams.map(teamMetrics)
   const avgSize = average(metrics.map(m => m.size))
 
-  // A bigger team gets a numerical advantage, so the optimizer intentionally
-  // seeks a slightly lower average rating for that team.
+  // A team with one extra player has a numerical advantage. We therefore
+  // intentionally prefer a slightly lower average ability for that team.
   const adjustedOverall = metrics.map(m => m.overall + (m.size - avgSize) * 0.72)
 
   let repeatPenalty = 0
@@ -179,8 +185,6 @@ function generateBalancedTeams(selectedPlayers, pairCounts) {
   const baseCaps = capacitiesFor(selectedPlayers.length)
   let best = null
 
-  // A randomized search is fast at this scale (normally 16-24 players),
-  // requires no paid AI/API, and lets us optimize several constraints together.
   for (let attempt = 0; attempt < 7000; attempt += 1) {
     const caps = shuffled(baseCaps)
     const pool = shuffled(selectedPlayers)
@@ -203,11 +207,19 @@ function generateBalancedTeams(selectedPlayers, pairCounts) {
   return best
 }
 
-function RatingEditor({ player, initialRating, onClose, onSaved }) {
+export function RatingEditor({ player, initialRating, onClose, onSaved = () => {}, readOnly = false }) {
   const [form, setForm] = useState({ ...emptyRating, ...(initialRating || {}) })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const overall = overallRating(form)
+
+  useEffect(() => {
+    setForm({ ...emptyRating, ...(initialRating || {}) })
+  }, [player?.id, initialRating])
+
+  function setRatingValue(key, value) {
+    setForm(prev => ({ ...prev, [key]: clampRating(value) }))
+  }
 
   async function save() {
     setSaving(true)
@@ -232,7 +244,7 @@ function RatingEditor({ player, initialRating, onClose, onSaved }) {
       <div className="rating-panel card">
         <div className="rating-panel-head">
           <div>
-            <span className="eyebrow">מידע פרטי למאמן</span>
+            <span className="eyebrow">{readOnly ? 'ADMIN • צפייה בלבד' : 'מידע פרטי למאמן'}</span>
             <h2>נתוני שחקן</h2>
           </div>
           <button type="button" className="tb-icon-button" onClick={onClose}>✕</button>
@@ -245,7 +257,7 @@ function RatingEditor({ player, initialRating, onClose, onSaved }) {
 
         <label className="tb-position-field">
           <span>עמדה מועדפת</span>
-          <select value={form.preferred_position} onChange={e => setForm({ ...form, preferred_position: e.target.value })}>
+          <select disabled={readOnly} value={form.preferred_position} onChange={e => setForm({ ...form, preferred_position: e.target.value })}>
             {POSITION_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
@@ -254,23 +266,117 @@ function RatingEditor({ player, initialRating, onClose, onSaved }) {
           {RATING_FIELDS.map(({ key, label }) => (
             <label className="rating-line" key={key}>
               <span>{label}</span>
-              <input type="range" min="1" max="10" step="1" value={form[key]} onChange={e => setForm({ ...form, [key]: Number(e.target.value) })} />
-              <b>{form[key]}</b>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                disabled={readOnly}
+                value={form[key]}
+                onChange={e => setRatingValue(key, e.target.value)}
+              />
+              <input
+                className="rating-number-input"
+                type="number"
+                min="1"
+                max="10"
+                step="1"
+                disabled={readOnly}
+                value={form[key]}
+                onChange={e => setRatingValue(key, e.target.value)}
+              />
             </label>
           ))}
         </div>
 
         {message && <div className="tb-message error-box">{message}</div>}
         <div className="rating-actions">
-          <button type="button" className="secondary" onClick={onClose}>ביטול</button>
-          <button type="button" className="primary compact" disabled={saving} onClick={save}>{saving ? 'שומר…' : 'שמירת נתונים'}</button>
+          {readOnly ? (
+            <button type="button" className="primary compact" onClick={onClose}>סגור</button>
+          ) : (
+            <>
+              <button type="button" className="secondary" onClick={onClose}>ביטול</button>
+              <button type="button" className="primary compact" disabled={saving} onClick={save}>{saving ? 'שומר…' : 'שמירת נתונים'}</button>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-export default function TeamBuilder({ players = [] }) {
+export function TeamHistoryPanel({ players = [] }) {
+  const [sessions, setSessions] = useState([])
+  const [assignments, setAssignments] = useState([])
+  const [expandedId, setExpandedId] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const { data: sessionRows, error: sessionError } = await supabase
+        .from('training_sessions')
+        .select('*')
+        .order('round_number', { ascending: false, nullsFirst: false })
+        .order('session_date', { ascending: false })
+      if (sessionError) {
+        setError(sessionError.message)
+        setLoading(false)
+        return
+      }
+      const rows = sessionRows || []
+      let assignmentRows = []
+      if (rows.length) {
+        const { data, error: assignmentError } = await supabase.from('training_assignments').select('*').in('session_id', rows.map(s => s.id))
+        if (assignmentError) setError(assignmentError.message)
+        else assignmentRows = data || []
+      }
+      setSessions(rows)
+      setAssignments(assignmentRows)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="empty card">טוען היסטוריית חלוקות…</div>
+  if (error) return <div className="notice error-box">שגיאה: {error}</div>
+  if (!sessions.length) return <div className="empty card">עדיין לא נשמרה חלוקת כוחות.</div>
+
+  return (
+    <div className="tb-admin-history-list">
+      {sessions.map(session => {
+        const rows = assignments.filter(a => a.session_id === session.id)
+        return (
+          <article className="card tb-admin-history-card" key={session.id}>
+            <button type="button" className="tb-admin-history-summary" onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}>
+              <span><b>מחזור {session.round_number || '—'}</b><small>{new Intl.DateTimeFormat('he-IL').format(new Date(`${session.session_date}T12:00:00`))}</small></span>
+              <span>{session.selected_count} שחקנים</span>
+              <span>יעד {session.preferred_team_size} לקבוצה</span>
+              <span>{session.balance_score ? `${session.balance_score}% איזון` : '—'}</span>
+              <span>{expandedId === session.id ? '▲' : '▼'}</span>
+            </button>
+            {expandedId === session.id && (
+              <div className="tb-archive-team-grid">
+                {TEAM_COLORS.map(team => (
+                  <div className={`tb-archive-team team-${team.key}`} key={team.key}>
+                    <b>{team.emoji} {team.name}</b>
+                    {rows.filter(r => r.team_color === team.key).sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).map(row => {
+                      const player = players.find(p => p.id === row.player_id)
+                      return <span key={row.player_id}>{player ? fullName(player) : 'שחקן'}</span>
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+export default function TeamBuilder({ players = [], rounds = [] }) {
   const activePlayers = useMemo(() => players.filter(p => p.is_active), [players])
   const [ratings, setRatings] = useState({})
   const [sessions, setSessions] = useState([])
@@ -278,10 +384,11 @@ export default function TeamBuilder({ players = [] }) {
   const [selectedIds, setSelectedIds] = useState([])
   const [preferredSize, setPreferredSize] = useState(5)
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10))
+  const [roundNumber, setRoundNumber] = useState(1)
   const [search, setSearch] = useState('')
   const [draftTeams, setDraftTeams] = useState(null)
   const [balanceScore, setBalanceScore] = useState(null)
-  const [ratingPlayer, setRatingPlayer] = useState(null)
+  const [viewRatingPlayer, setViewRatingPlayer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -290,7 +397,7 @@ export default function TeamBuilder({ players = [] }) {
     setLoading(true)
     const [ratingsRes, sessionsRes] = await Promise.all([
       supabase.from('player_ratings').select('*'),
-      supabase.from('training_sessions').select('*').order('session_date', { ascending: false }).order('created_at', { ascending: false }).limit(20),
+      supabase.from('training_sessions').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }).limit(30),
     ])
 
     if (ratingsRes.error || sessionsRes.error) {
@@ -315,6 +422,16 @@ export default function TeamBuilder({ players = [] }) {
 
   useEffect(() => { loadPrivateData() }, [])
 
+  const nextRoundNumber = useMemo(() => {
+    const savedRounds = sessions.map(s => Number(s.round_number || 0))
+    const leagueRounds = rounds.map(r => Number(r.round_number || 0))
+    return Math.max(0, ...savedRounds, ...leagueRounds) + 1
+  }, [sessions, rounds])
+
+  useEffect(() => {
+    setRoundNumber(prev => prev === 1 ? nextRoundNumber : prev)
+  }, [nextRoundNumber])
+
   const pairCounts = useMemo(() => buildPairCounts(sessions, assignments), [sessions, assignments])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
   const visiblePlayers = useMemo(() => {
@@ -322,6 +439,10 @@ export default function TeamBuilder({ players = [] }) {
     if (!q) return activePlayers
     return activePlayers.filter(p => fullName(p).toLowerCase().includes(q))
   }, [activePlayers, search])
+
+  const desiredTotal = preferredSize * 4
+  const actualCaps = capacitiesFor(selectedPlayers.length)
+  const extraVsTarget = selectedPlayers.length - desiredTotal
 
   function togglePlayer(id) {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -338,7 +459,7 @@ export default function TeamBuilder({ players = [] }) {
 
     const unrated = selectedPlayers.filter(p => !ratingComplete(ratings[p.id]))
     if (unrated.length) {
-      setMessage(`שגיאה: חסרים נתוני יכולת ל-${unrated.length} שחקנים. יש להשלים דירוג לפני יצירת הקבוצות.`)
+      setMessage(`שגיאה: חסרים נתוני יכולת ל-${unrated.length} שחקנים. יש להשלים אותם קודם ב"ניהול שחקנים".`)
       return
     }
 
@@ -383,7 +504,22 @@ export default function TeamBuilder({ players = [] }) {
     setSaving(true)
     setMessage('')
 
+    const number = Number(roundNumber)
+    if (!number || number < 1) {
+      setSaving(false)
+      setMessage('שגיאה: מספר המחזור אינו תקין.')
+      return
+    }
+
+    const { data: duplicate } = await supabase.from('training_sessions').select('id').eq('round_number', number).maybeSingle()
+    if (duplicate) {
+      setSaving(false)
+      setMessage(`שגיאה: כבר נשמרה חלוקת כוחות למחזור ${number}. אפשר לצפות בה בארכיון.`)
+      return
+    }
+
     const { data: session, error: sessionError } = await supabase.from('training_sessions').insert({
+      round_number: number,
       session_date: sessionDate,
       preferred_team_size: preferredSize,
       selected_count: selectedPlayers.length,
@@ -412,9 +548,13 @@ export default function TeamBuilder({ players = [] }) {
       return
     }
 
-    setMessage('החלוקה אושרה ונשמרה בהיסטוריה ✅')
+    setMessage(`חלוקת מחזור ${number} אושרה ונשמרה בהיסטוריה ✅`)
     setSaving(false)
+    setDraftTeams(null)
+    setBalanceScore(null)
+    setSelectedIds([])
     await loadPrivateData()
+    setRoundNumber(number + 1)
   }
 
   function loadSavedSession(session) {
@@ -429,41 +569,31 @@ export default function TeamBuilder({ players = [] }) {
     setSelectedIds(rows.map(r => r.player_id))
     setPreferredSize(session.preferred_team_size)
     setSessionDate(session.session_date)
+    setRoundNumber(session.round_number || nextRoundNumber)
     setBalanceScore(Number(session.balance_score || 0))
-    setMessage('נטענה חלוקה שמורה לצפייה. שינויים שתעשה עכשיו לא ישנו את ההיסטוריה עד שתאשר חלוקה חדשה.')
+    setMessage('נטענה חלוקה שמורה לצפייה. אישור מחדש ייחסם כדי לא ליצור כפילות למחזור.')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  const teamSizeText = useMemo(() => {
-    if (!selectedPlayers.length) return 'לא נבחרו שחקנים'
-    const caps = capacitiesFor(selectedPlayers.length).sort((a, b) => b - a)
-    const distinct = [...new Set(caps)]
-    const sizes = distinct.length === 1 ? `${distinct[0]} בכל קבוצה` : `${Math.min(...caps)}–${Math.max(...caps)} שחקנים בקבוצה`
-    return `${selectedPlayers.length} שחקנים • ${sizes}`
-  }, [selectedPlayers.length])
 
   return (
     <section className="team-builder">
       <div className="section-title tb-title">
-        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, הגדר גודל רצוי ויצור חלוקה מאוזנת שלא חוזרת על אותם הרכבים.</p></div>
-        <label className="tb-date">תאריך אימון<input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></label>
+        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, קבע יעד של 4/5/6 שחקנים לקבוצה וצור חלוקה מאוזנת.</p></div>
       </div>
 
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
 
-      <div className="card tb-controls">
-        <div>
-          <span className="eyebrow">גודל רצוי לקבוצה</span>
-          <div className="tb-size-buttons">
-            {[4, 5, 6].map(size => <button type="button" className={preferredSize === size ? 'selected' : ''} key={size} onClick={() => setPreferredSize(size)}>{size}</button>)}
-          </div>
+      <div className="card tb-round-setup">
+        <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>מספר המחזור הבא נשמר לפי ההיסטוריה ולא חוזר אחורה.</p></div>
+        <div className="tb-round-fields">
+          <label>מספר מחזור<input type="number" min="1" value={roundNumber} onChange={e => setRoundNumber(e.target.value)} /></label>
+          <label>תאריך<input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></label>
         </div>
-        <div className="tb-selection-summary"><b>{teamSizeText}</b><small>המערכת תמיד מחלקת ל־4 קבוצות: ורוד, כחול, תכלת ולבן.</small></div>
       </div>
 
       <div className="card tb-attendance">
         <div className="tb-list-head">
-          <div><span className="eyebrow">נוכחות ונתוני שחקנים</span><h2>מי הגיע לאימון?</h2></div>
+          <div><span className="eyebrow">שלב 2</span><h2>מי הגיע לאימון?</h2></div>
           <input type="search" placeholder="חיפוש שחקן…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
@@ -477,10 +607,28 @@ export default function TeamBuilder({ players = [] }) {
               <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
               <div className="tb-player-name"><b>{fullName(player)}</b><small>{position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${overall ? '' : 'missing'}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
-              <button type="button" className="secondary" onClick={() => setRatingPlayer(player)}>נתוני שחקן</button>
+              <button type="button" className="secondary" onClick={() => setViewRatingPlayer(player)}>צפה בנתונים 🔒</button>
             </div>
           )
         })}
+      </div>
+
+      <div className="card tb-controls tb-controls-after-attendance">
+        <div>
+          <span className="eyebrow">שלב 3</span>
+          <h2>גודל רצוי לקבוצה</h2>
+          <div className="tb-size-buttons">
+            {[4, 5, 6].map(size => <button type="button" className={preferredSize === size ? 'selected' : ''} key={size} onClick={() => { setPreferredSize(size); setDraftTeams(null); setBalanceScore(null) }}>{size}</button>)}
+          </div>
+        </div>
+        <div className="tb-selection-summary">
+          <b>נבחרו {selectedPlayers.length} שחקנים</b>
+          <span>יעד: 4 קבוצות × {preferredSize} = {desiredTotal} שחקנים</span>
+          <small>בפועל לפי הנוכחות: {actualCaps.join(' / ')} שחקנים בקבוצות</small>
+          {extraVsTarget > 0 && <em>יש {extraVsTarget} שחקני אקסטרה — הקבוצות הגדולות יקבלו ממוצע יכולת נמוך יותר.</em>}
+          {extraVsTarget < 0 && <em>חסרים {Math.abs(extraVsTarget)} שחקנים ליעד שבחרת; עדיין אפשר ליצור חלוקה לפי מי שהגיע.</em>}
+          {extraVsTarget === 0 && selectedPlayers.length > 0 && <em className="ready">הכמות מתאימה בדיוק ליעד ✅</em>}
+        </div>
       </div>
 
       <div className="tb-generate-row">
@@ -527,12 +675,13 @@ export default function TeamBuilder({ players = [] }) {
       )}
 
       <div className="card tb-history">
-        <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות שאושרו</h2></div><small>משמש גם את האלגוריתם כדי לצמצם הרכבים שחוזרים על עצמם.</small></div>
+        <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות שאושרו</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
         {!sessions.length ? <div className="empty">עדיין לא נשמרה חלוקת כוחות.</div> : (
           <div className="tb-history-table">
-            <div className="tb-history-row head"><span>תאריך</span><span>שחקנים</span><span>גודל רצוי</span><span>איזון</span><span /></div>
+            <div className="tb-history-row head"><span>מחזור</span><span>תאריך</span><span>שחקנים</span><span>יעד</span><span>איזון</span><span /></div>
             {sessions.map(session => (
               <div className="tb-history-row" key={session.id}>
+                <span>{session.round_number || '—'}</span>
                 <span>{new Intl.DateTimeFormat('he-IL').format(new Date(`${session.session_date}T12:00:00`))}</span>
                 <span>{session.selected_count}</span>
                 <span>{session.preferred_team_size}</span>
@@ -544,7 +693,14 @@ export default function TeamBuilder({ players = [] }) {
         )}
       </div>
 
-      {ratingPlayer && <RatingEditor player={ratingPlayer} initialRating={ratings[ratingPlayer.id]} onClose={() => setRatingPlayer(null)} onSaved={saved => setRatings(prev => ({ ...prev, [saved.player_id]: saved }))} />}
+      {viewRatingPlayer && (
+        <RatingEditor
+          player={viewRatingPlayer}
+          initialRating={ratings[viewRatingPlayer.id]}
+          readOnly
+          onClose={() => setViewRatingPlayer(null)}
+        />
+      )}
     </section>
   )
 }

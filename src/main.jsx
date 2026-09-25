@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import TeamBuilder from './TeamBuilder'
+import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS } from './TeamBuilder'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
@@ -71,11 +71,126 @@ function Shell({ children }) {
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand"><LeagueLogo /></Link>
-        <Link to="/admin" className="admin-link">Admin</Link>
+        <nav className="topbar-actions">
+          <Link to="/archive" className="archive-link">ארכיון</Link>
+          <Link to="/admin" className="admin-link">Admin</Link>
+        </nav>
       </header>
       {children}
       <footer>{FOOTER_TEXT}</footer>
     </div>
+  )
+}
+
+
+function PhotoLightbox({ url, alt = '', onClose }) {
+  if (!url) return null
+  return (
+    <div className="photo-lightbox" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <button type="button" className="photo-lightbox-close" onClick={onClose}>✕</button>
+      <img src={url} alt={alt} />
+    </div>
+  )
+}
+
+function PublicArchive() {
+  const [mode, setMode] = useState('photos')
+  const [rounds, setRounds] = useState([])
+  const [sessions, setSessions] = useState([])
+  const [assignments, setAssignments] = useState([])
+  const [lightbox, setLightbox] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      const [roundsRes, teamArchiveRes] = await Promise.all([
+        supabase.from('rounds').select('id, round_number, round_date, winner_photo_url').order('round_number', { ascending: false }),
+        supabase.from('public_team_archive').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }),
+      ])
+      const err = roundsRes.error || teamArchiveRes.error
+      if (err) setError(err.message || 'שגיאה בטעינת הארכיון')
+      setRounds(roundsRes.data || [])
+      const archiveRows = teamArchiveRes.data || []
+      const sessionMap = new Map()
+      archiveRows.forEach(row => {
+        if (!sessionMap.has(row.session_id)) {
+          sessionMap.set(row.session_id, {
+            id: row.session_id,
+            round_number: row.round_number,
+            session_date: row.session_date,
+            preferred_team_size: row.preferred_team_size,
+            selected_count: row.selected_count,
+            balance_score: row.balance_score,
+          })
+        }
+      })
+      setSessions([...sessionMap.values()])
+      setAssignments(archiveRows.map(row => ({
+        session_id: row.session_id,
+        player_id: row.player_id,
+        team_color: row.team_color,
+        team_position: row.team_position,
+        player: { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url },
+      })))
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  return (
+    <Shell>
+      <main className="page public-archive">
+        <div className="archive-page-head">
+          <div><span className="eyebrow">ארכיון הליגה</span><h1>מחזורים קודמים</h1><p>תמונות הניצחון וחלוקות הקבוצות שאושרו בפועל.</p></div>
+          <div className="archive-tabs">
+            <button type="button" className={mode === 'photos' ? 'active' : ''} onClick={() => setMode('photos')}>📸 היסטוריית תמונות ניצחון</button>
+            <button type="button" className={mode === 'teams' ? 'active' : ''} onClick={() => setMode('teams')}>⚽ היסטוריית חלוקה לקבוצות</button>
+          </div>
+        </div>
+
+        {error && <div className="notice error-box">{error}</div>}
+        {loading ? <div className="empty card">טוען ארכיון…</div> : mode === 'photos' ? (
+          <div className="archive-photo-grid">
+            {rounds.filter(r => r.winner_photo_url).length === 0 ? <div className="empty card">עדיין אין תמונות ניצחון בארכיון.</div> : rounds.filter(r => r.winner_photo_url).map(round => (
+              <button type="button" className="archive-photo-card card" key={round.id} onClick={() => setLightbox({ url: round.winner_photo_url, alt: `זוכי מחזור ${round.round_number}` })}>
+                <img src={round.winner_photo_url} alt={`זוכי מחזור ${round.round_number}`} />
+                <span><b>מחזור {round.round_number}</b><small>{formatDate(round.round_date)}</small></span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="public-team-history">
+            {sessions.length === 0 ? <div className="empty card">עדיין אין חלוקות קבוצות מאושרות.</div> : sessions.map(session => {
+              const rows = assignments.filter(a => a.session_id === session.id)
+              return (
+                <article className="card public-team-session" key={session.id}>
+                  <div className="public-team-session-head">
+                    <div><span className="eyebrow">מחזור {session.round_number || '—'}</span><h2>{formatDate(session.session_date)}</h2></div>
+                    <span>{session.selected_count} שחקנים</span>
+                  </div>
+                  <div className="public-team-grid">
+                    {TEAM_COLORS.map(team => (
+                      <div className={`public-team-card team-${team.key}`} key={team.key}>
+                        <div className="public-team-card-head">{team.emoji} {team.name}</div>
+                        {rows.filter(r => r.team_color === team.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(row => (
+                          <div className="public-team-player" key={row.player_id}>
+                            <img src={row.player?.photo_url || avatarFallback(row.player?.name)} alt="" />
+                            <span>{row.player?.name || 'שחקן'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </main>
+      <PhotoLightbox url={lightbox?.url} alt={lightbox?.alt} onClose={() => setLightbox(null)} />
+    </Shell>
   )
 }
 
@@ -158,6 +273,7 @@ function usePublicHomeData() {
 
 function Home() {
   const { leaderboard, latestRound, recentRounds, trendMap, loading, error } = usePublicHomeData()
+  const [lightbox, setLightbox] = useState(null)
 
   return (
     <Shell>
@@ -179,11 +295,13 @@ function Home() {
 
         {latestRound?.winner_photo_url && (
           <section className="winner-card card">
-            <img src={latestRound.winner_photo_url} alt={`זוכי מחזור ${latestRound.round_number}`} />
+            <button type="button" className="winner-photo-button" onClick={() => setLightbox({ url: latestRound.winner_photo_url, alt: `זוכי מחזור ${latestRound.round_number}` })}>
+              <img src={latestRound.winner_photo_url} alt={`זוכי מחזור ${latestRound.round_number}`} />
+            </button>
             <div className="winner-copy">
               <span className="eyebrow">🏆 זוכי השבוע</span>
               <h2>מחזור {latestRound.round_number}</h2>
-              <p>{latestRound.winner_caption || 'תמונת הניצחון השבועית'}</p>
+              <p>לחץ על התמונה לצפייה בגודל מלא</p>
               <small>{formatDate(latestRound.round_date)}</small>
             </div>
           </section>
@@ -262,19 +380,20 @@ function Home() {
             </div>
             <div className="round-cards">
               {recentRounds.map(r => (
-                <div className="mini-round card" key={r.id}>
+                <button type="button" className="mini-round card mini-round-button" key={r.id} disabled={!r.winner_photo_url} onClick={() => r.winner_photo_url && setLightbox({ url: r.winner_photo_url, alt: `זוכי מחזור ${r.round_number}` })}>
                   {r.winner_photo_url ? <img src={r.winner_photo_url} alt="" /> : <div className="mini-placeholder">🏆</div>}
                   <div>
                     <b>מחזור {r.round_number}</b>
                     <span>{formatDate(r.round_date)}</span>
-                    {r.winner_caption && <small>{r.winner_caption}</small>}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
+            <div className="archive-cta"><Link to="/archive" className="secondary archive-button">לארכיון המלא ←</Link></div>
           </section>
         )}
       </main>
+      <PhotoLightbox url={lightbox?.url} alt={lightbox?.alt} onClose={() => setLightbox(null)} />
     </Shell>
   )
 }
@@ -458,7 +577,6 @@ function AdminPanel() {
   const [wins, setWins] = useState({})
   const [roundPoints, setRoundPoints] = useState(null)
   const [winnerFile, setWinnerFile] = useState(null)
-  const [winnerCaption, setWinnerCaption] = useState('')
 
   const [newFirstName, setNewFirstName] = useState('')
   const [newLastName, setNewLastName] = useState('')
@@ -468,20 +586,25 @@ function AdminPanel() {
   const [editFirstName, setEditFirstName] = useState('')
   const [editLastName, setEditLastName] = useState('')
   const [editPhoto, setEditPhoto] = useState(null)
+  const [ratings, setRatings] = useState({})
+  const [ratingPlayer, setRatingPlayer] = useState(null)
+  const [historyMode, setHistoryMode] = useState('photos')
 
   async function loadData() {
     setLoading(true)
-    const [pRes, rRes, resRes] = await Promise.all([
+    const [pRes, rRes, resRes, ratingsRes] = await Promise.all([
       supabase.from('players').select('*').order('name'),
       supabase.from('rounds').select('*').order('round_number', { ascending: false }),
       supabase.from('results').select('*, player:players(id,name,photo_url), round:rounds(id,round_number,round_date)').order('created_at', { ascending: false }),
+      supabase.from('player_ratings').select('*'),
     ])
 
-    const err = pRes.error || rRes.error || resRes.error
+    const err = pRes.error || rRes.error || resRes.error || ratingsRes.error
     if (err) setStatus(`שגיאה: ${err.message}`)
     setPlayers(pRes.data || [])
     setRounds(rRes.data || [])
     setResults(resRes.data || [])
+    setRatings(Object.fromEntries((ratingsRes.data || []).map(r => [r.player_id, r])))
     setLoading(false)
   }
 
@@ -532,7 +655,7 @@ function AdminPanel() {
       const roundPayload = {
         round_number: number,
         round_date: roundDate,
-        winner_caption: winnerCaption || existingRound?.winner_caption || null,
+        winner_caption: null,
         winner_photo_url: winnerPhotoUrl,
       }
 
@@ -575,7 +698,6 @@ function AdminPanel() {
       setWins({})
       setRoundPoints(null)
       setWinnerFile(null)
-      setWinnerCaption('')
       await loadData()
     } catch (err) {
       setStatus(`שגיאה: ${err.message}`)
@@ -588,7 +710,6 @@ function AdminPanel() {
     setTab('round')
     setRoundNumber(round.round_number)
     setRoundDate(round.round_date)
-    setWinnerCaption(round.winner_caption || '')
     setWinnerFile(null)
 
     const roundResults = results.filter(r => r.round_id === round.id && r.won)
@@ -774,11 +895,10 @@ function AdminPanel() {
               <div>
                 <span className="eyebrow">תמונת ניצחון שבועית</span>
                 <h2>זוכי מחזור {roundNumber || '—'}</h2>
-                <p>אפשר להעלות תמונה אחת לכל מחזור ולהוסיף כיתוב שיופיע בעמוד הראשי.</p>
+                <p>אפשר להעלות תמונה אחת שתופיע בעמוד הראשי ובארכיון הציבורי.</p>
               </div>
               <div className="upload-fields">
                 <input type="file" accept="image/*" onChange={e => setWinnerFile(e.target.files?.[0] || null)} />
-                <input type="text" placeholder="כיתוב, למשל: אלופי מחזור 8 🏆" value={winnerCaption} onChange={e => setWinnerCaption(e.target.value)} />
               </div>
             </div>
 
@@ -845,6 +965,7 @@ function AdminPanel() {
                       </span>
                       <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
+                        <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתוני יכולת</button>
                         <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
                         <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
                           {p.is_active ? 'הסתר' : 'החזר'}
@@ -859,32 +980,50 @@ function AdminPanel() {
         )}
 
         {tab === 'teams' && (
-          <TeamBuilder players={players} />
+          <TeamBuilder players={players} rounds={rounds} />
         )}
 
         {tab === 'history' && (
           <section>
-            <div className="section-title"><div><span className="eyebrow">ADMIN</span><h1>היסטוריית מחזורים</h1></div></div>
-            <div className="admin-round-grid">
-              {rounds.length === 0 ? <div className="empty card">עדיין אין מחזורים.</div> : rounds.map(r => {
-                const roundResults = results.filter(x => x.round_id === r.id)
-                return (
-                  <article className="card admin-round-card" key={r.id}>
-                    {r.winner_photo_url && <img src={r.winner_photo_url} alt="" />}
-                    <div className="admin-round-body">
-                      <div>
-                        <span className="eyebrow">מחזור {r.round_number}</span>
-                        <h3>{formatDate(r.round_date)}</h3>
-                        <p>{roundResults.length} שחקנים • {roundResults.reduce((s, x) => s + x.points, 0)} נקודות חולקו</p>
-                        {r.winner_caption && <small>{r.winner_caption}</small>}
-                      </div>
-                      <button className="secondary" onClick={() => loadRoundForEditing(r)}>ערוך מחזור</button>
-                    </div>
-                  </article>
-                )
-              })}
+            <div className="section-title admin-history-title">
+              <div><span className="eyebrow">ADMIN</span><h1>ארכיון</h1></div>
+              <div className="admin-history-tabs">
+                <button type="button" className={historyMode === 'photos' ? 'active' : ''} onClick={() => setHistoryMode('photos')}>📸 היסטוריית תמונות ניצחון</button>
+                <button type="button" className={historyMode === 'teams' ? 'active' : ''} onClick={() => setHistoryMode('teams')}>⚽ היסטוריית חלוקה לקבוצות</button>
+              </div>
             </div>
+            {historyMode === 'photos' ? (
+              <div className="admin-round-grid">
+                {rounds.length === 0 ? <div className="empty card">עדיין אין מחזורים.</div> : rounds.map(r => {
+                  const roundResults = results.filter(x => x.round_id === r.id)
+                  return (
+                    <article className="card admin-round-card" key={r.id}>
+                      {r.winner_photo_url && <a href={r.winner_photo_url} target="_blank" rel="noreferrer"><img src={r.winner_photo_url} alt={`זוכי מחזור ${r.round_number}`} /></a>}
+                      <div className="admin-round-body">
+                        <div>
+                          <span className="eyebrow">מחזור {r.round_number}</span>
+                          <h3>{formatDate(r.round_date)}</h3>
+                          <p>{roundResults.length} שחקנים • {roundResults.reduce((sum, x) => sum + x.points, 0)} נקודות חולקו</p>
+                        </div>
+                        <button className="secondary" onClick={() => loadRoundForEditing(r)}>ערוך מחזור</button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <TeamHistoryPanel players={players} />
+            )}
           </section>
+        )}
+
+        {ratingPlayer && (
+          <RatingEditor
+            player={ratingPlayer}
+            initialRating={ratings[ratingPlayer.id]}
+            onClose={() => setRatingPlayer(null)}
+            onSaved={payload => setRatings(prev => ({ ...prev, [payload.player_id]: payload }))}
+          />
         )}
       </main>
     </div>
@@ -896,6 +1035,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/archive" element={<PublicArchive />} />
         <Route path="/player/:id" element={<Player />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
