@@ -1,14 +1,10 @@
-Football Ranking App — V5J
+Football Ranking App — V5K
 
-This update fixes the ranking trend arrows in the standings table.
-
-Changes:
-- Adds a dedicated trend column between Player and Wins
-- Trend arrows now stay vertically aligned in one fixed column
-- Adds a "מגמה" header on desktop
-- Uses a compact arrow symbol in the mobile header
-- Adds extra spacing so arrows never crowd the wins column
-- Keeps the V5I mobile hero fixes intact
+Fixes ranking-table alignment:
+- Desktop: full headers "ניצחונות" and "נקודות", centered in their columns
+- Mobile: shortened headers "נצ'" and "נק'", centered
+- Wins and points values centered in fixed columns on both desktop and mobile
+- Keeps V5J trend column and all previous layout fixes
 
 Files to upload:
 - src/main.jsx
