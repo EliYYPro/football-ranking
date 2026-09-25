@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
+import TeamBuilder from './TeamBuilder'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
@@ -17,6 +18,16 @@ const formatDate = (date) => {
 }
 
 const FOOTER_TEXT = 'טבלת ליגת ותיקי רמת אפעל • עונת 2026/27 • מאמן: דניאל לשר'
+
+const splitPlayerName = (player = {}) => {
+  if (player.first_name || player.last_name) {
+    return { first: player.first_name || '', last: player.last_name || '' }
+  }
+  const parts = String(player.name || '').trim().split(/\s+/).filter(Boolean)
+  return { first: parts[0] || '', last: parts.slice(1).join(' ') }
+}
+
+const joinPlayerName = (first, last) => [first?.trim(), last?.trim()].filter(Boolean).join(' ')
 
 const compareLeaderboard = (a, b) =>
   (Number(b.total_points) - Number(a.total_points)) ||
@@ -201,7 +212,6 @@ function Home() {
                     <span className="medal">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
                     <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
                     <div className="top-player-name"><span className="name-with-trend"><b>{p.name}</b><TrendArrow trend={trendMap[p.id]} /></span></div>
-                    {p.team_name && <small>{p.team_name}</small>}
                     <div className="top-player-stats">
                       <span><b>{p.total_points}</b> נק׳</span>
                       <span><b>{p.total_wins}</b> ניצ׳</span>
@@ -229,8 +239,7 @@ function Home() {
                       <img src={p.photo_url || avatarFallback(p.name)} alt={p.name} />
                       <span className="player-text">
                         <b>{p.name}</b>
-                        {p.team_name && <small>{p.team_name}</small>}
-                      </span>
+                          </span>
                     </span>
                     <span className="trend-col"><TrendArrow trend={trendMap[p.id]} /></span>
                     <span className="wins-col">{p.total_wins}</span>
@@ -322,7 +331,6 @@ function Player() {
             <section className="profile card">
               <img className="profile-img" src={player.photo_url || avatarFallback(player.name)} alt={player.name} />
               <h1>{player.name}</h1>
-              {player.team_name && <div className="team-label">{player.team_name}</div>}
               <div className="place">מקום {place} {place === 1 ? '👑' : ''}</div>
               <div className="stats">
                 <div><b>{player.total_points}</b><span>נקודות</span></div>
@@ -452,13 +460,13 @@ function AdminPanel() {
   const [winnerFile, setWinnerFile] = useState(null)
   const [winnerCaption, setWinnerCaption] = useState('')
 
-  const [newName, setNewName] = useState('')
-  const [newTeam, setNewTeam] = useState('')
+  const [newFirstName, setNewFirstName] = useState('')
+  const [newLastName, setNewLastName] = useState('')
   const [newPhoto, setNewPhoto] = useState(null)
 
   const [editingPlayerId, setEditingPlayerId] = useState(null)
-  const [editName, setEditName] = useState('')
-  const [editTeam, setEditTeam] = useState('')
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
   const [editPhoto, setEditPhoto] = useState(null)
 
   async function loadData() {
@@ -598,20 +606,23 @@ function AdminPanel() {
 
   async function addPlayer(e) {
     e.preventDefault()
-    if (!newName.trim()) return
+    if (!newFirstName.trim()) return
     setBusy(true)
     setStatus('')
     try {
       const photoUrl = newPhoto ? await uploadImage('player-photos', newPhoto, 'players') : null
+      const fullName = joinPlayerName(newFirstName, newLastName)
       const { error } = await supabase.from('players').insert({
-        name: newName.trim(),
-        team_name: newTeam.trim() || null,
+        first_name: newFirstName.trim(),
+        last_name: newLastName.trim() || null,
+        name: fullName,
+        team_name: null,
         photo_url: photoUrl,
         is_active: true,
       })
       if (error) throw error
-      setNewName('')
-      setNewTeam('')
+      setNewFirstName('')
+      setNewLastName('')
       setNewPhoto(null)
       setStatus('השחקן נוסף בהצלחה ✅')
       await loadData()
@@ -623,23 +634,24 @@ function AdminPanel() {
   }
 
   function startEditPlayer(player) {
+    const parts = splitPlayerName(player)
     setEditingPlayerId(player.id)
-    setEditName(player.name || '')
-    setEditTeam(player.team_name || '')
+    setEditFirstName(parts.first)
+    setEditLastName(parts.last)
     setEditPhoto(null)
     setStatus('')
   }
 
   function cancelEditPlayer() {
     setEditingPlayerId(null)
-    setEditName('')
-    setEditTeam('')
+    setEditFirstName('')
+    setEditLastName('')
     setEditPhoto(null)
   }
 
   async function savePlayerEdit(player) {
-    if (!editName.trim()) {
-      setStatus('שגיאה: שם השחקן לא יכול להיות ריק.')
+    if (!editFirstName.trim()) {
+      setStatus('שגיאה: שם פרטי לא יכול להיות ריק.')
       return
     }
 
@@ -648,12 +660,15 @@ function AdminPanel() {
     try {
       let photoUrl = player.photo_url || null
       if (editPhoto) photoUrl = await uploadImage('player-photos', editPhoto, 'players')
+      const fullName = joinPlayerName(editFirstName, editLastName)
 
       const { error } = await supabase
         .from('players')
         .update({
-          name: editName.trim(),
-          team_name: editTeam.trim() || null,
+          first_name: editFirstName.trim(),
+          last_name: editLastName.trim() || null,
+          name: fullName,
+          team_name: null,
           photo_url: photoUrl,
         })
         .eq('id', player.id)
@@ -689,6 +704,7 @@ function AdminPanel() {
         <Link to="/" className="brand"><LeagueLogo /></Link>
         <button className={tab === 'round' ? 'active' : ''} onClick={() => setTab('round')}>🏆 עדכון מחזור</button>
         <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>👥 ניהול שחקנים</button>
+        <button className={tab === 'teams' ? 'active' : ''} onClick={() => setTab('teams')}>⚖️ חלוקת כוחות</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>🕘 היסטוריה</button>
         <button onClick={logout}>↪ יציאה</button>
       </aside>
@@ -777,8 +793,8 @@ function AdminPanel() {
             <form className="card add-player" onSubmit={addPlayer}>
               <h2>הוסף שחקן</h2>
               <div className="form-grid">
-                <input type="text" placeholder="שם השחקן" value={newName} onChange={e => setNewName(e.target.value)} required />
-                <input type="text" placeholder="שם קבוצה / תיאור (אופציונלי)" value={newTeam} onChange={e => setNewTeam(e.target.value)} />
+                <input type="text" placeholder="שם פרטי" value={newFirstName} onChange={e => setNewFirstName(e.target.value)} required />
+                <input type="text" placeholder="שם משפחה" value={newLastName} onChange={e => setNewLastName(e.target.value)} />
                 <input type="file" accept="image/*" onChange={e => setNewPhoto(e.target.files?.[0] || null)} />
               </div>
               <button className="primary" disabled={busy}>{busy ? 'מוסיף…' : 'הוסף שחקן'}</button>
@@ -793,21 +809,21 @@ function AdminPanel() {
                         <img src={p.photo_url || avatarFallback(p.name)} alt="" />
                         <div>
                           <b>עריכת שחקן</b>
-                          <small>אפשר לשנות שם, תיאור וגם להחליף תמונה.</small>
+                          <small>אפשר לשנות שם פרטי, שם משפחה וגם להחליף תמונה.</small>
                         </div>
                       </div>
                       <div className="player-edit-fields">
                         <input
                           type="text"
-                          placeholder="שם השחקן"
-                          value={editName}
-                          onChange={e => setEditName(e.target.value)}
+                          placeholder="שם פרטי"
+                          value={editFirstName}
+                          onChange={e => setEditFirstName(e.target.value)}
                         />
                         <input
                           type="text"
-                          placeholder="שם קבוצה / תיאור (אופציונלי)"
-                          value={editTeam}
-                          onChange={e => setEditTeam(e.target.value)}
+                          placeholder="שם משפחה"
+                          value={editLastName}
+                          onChange={e => setEditLastName(e.target.value)}
                         />
                         <label className="edit-photo-field">
                           <span>החלפת תמונה (אופציונלי)</span>
@@ -825,7 +841,7 @@ function AdminPanel() {
                     <>
                       <span className="player">
                         <img src={p.photo_url || avatarFallback(p.name)} alt="" />
-                        <span className="player-text"><b>{p.name}</b>{p.team_name && <small>{p.team_name}</small>}</span>
+                        <span className="player-text"><b>{p.name}</b></span>
                       </span>
                       <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
@@ -840,6 +856,10 @@ function AdminPanel() {
               ))}
             </div>
           </section>
+        )}
+
+        {tab === 'teams' && (
+          <TeamBuilder players={players} />
         )}
 
         {tab === 'history' && (
