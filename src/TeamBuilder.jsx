@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 
 export const TEAM_COLORS = [
-  { key: 'pink', name: 'ורוד', emoji: '🩷' },
-  { key: 'blue', name: 'כחול', emoji: '🔵' },
-  { key: 'cyan', name: 'תכלת', emoji: '🩵' },
-  { key: 'white', name: 'לבן', emoji: '⚪' },
+  { key: 'pink', name: 'ורוד' },
+  { key: 'blue', name: 'כחול' },
+  { key: 'cyan', name: 'תכלת' },
+  { key: 'white', name: 'לבן' },
 ]
 
 export const RATING_FIELDS = [
@@ -64,8 +64,8 @@ export function overallRating(rating) {
 export function ratingLevelClass(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return 'rating-missing'
-  if (n >= 8.5) return 'rating-elite'
-  if (n >= 7) return 'rating-strong'
+  if (n >= 7.5) return 'rating-elite'
+  if (n >= 6.5) return 'rating-strong'
   if (n >= 5.5) return 'rating-medium'
   return 'rating-low'
 }
@@ -370,7 +370,7 @@ export function TeamHistoryPanel({ players = [] }) {
               <div className="tb-archive-team-grid">
                 {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                   <div className={`tb-archive-team team-${team.key}`} key={team.key}>
-                    <b>{team.emoji} {team.name}</b>
+                    <b>{team.name}</b>
                     {rows.filter(r => r.team_color === team.key).sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).map(row => {
                       const player = players.find(p => p.id === row.player_id)
                       return <span key={row.player_id}>{player ? fullName(player) : 'שחקן'}</span>
@@ -673,7 +673,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   return (
     <section className="team-builder">
       <div className="section-title tb-title">
-        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, בחר כמה קבוצות וצבעים, קבע כמות שחקנים פר קבוצה וצור חלוקה מאוזנת.</p></div>
+        <div><span className="eyebrow">ADMIN • פרטי</span><h1>חלוקת כוחות</h1><p>בחר מי הגיע, קבע כמות קבוצות וכמות שחקנים פר קבוצה, בחר צבעי חולצות וצור חלוקה מאוזנת.</p></div>
       </div>
 
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
@@ -724,24 +724,9 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         </div>
       </div>
 
-      <div className="card tb-color-step">
-        <div>
-          <span className="eyebrow">שלב 4</span>
-          <h2>בחירת צבעי חולצות</h2>
-          <p>בחר בדיוק {teamCount} צבעים מתוך ארבעת צבעי המדים.</p>
-        </div>
-        <div className="tb-color-buttons">
-          {TEAM_COLORS.map(team => {
-            const selected = selectedColorKeys.includes(team.key)
-            return <button type="button" key={team.key} className={`team-${team.key} ${selected ? 'selected' : ''}`} onClick={() => toggleTeamColor(team.key)}>{team.emoji} {team.name}</button>
-          })}
-        </div>
-        <small className="tb-color-hint">נבחרו {selectedColorKeys.length} מתוך {teamCount}</small>
-      </div>
-
       <div className="card tb-controls tb-controls-after-attendance">
         <div>
-          <span className="eyebrow">שלב 5</span>
+          <span className="eyebrow">שלב 4</span>
           <h2>כמות שחקנים פר קבוצה</h2>
           <div className="tb-size-buttons">
             {[4, 5, 6].map(size => <button type="button" className={preferredSize === size ? 'selected' : ''} key={size} onClick={() => { setPreferredSize(size); setDraftTeams(null); setBalanceScore(null) }}>{size}</button>)}
@@ -755,6 +740,21 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           {extraVsTarget < 0 && <em>חסרים {Math.abs(extraVsTarget)} שחקנים ליעד שבחרת; עדיין אפשר ליצור חלוקה לפי מי שהגיע.</em>}
           {extraVsTarget === 0 && selectedPlayers.length > 0 && <em className="ready">הכמות מתאימה בדיוק ליעד ✅</em>}
         </div>
+      </div>
+
+      <div className="card tb-color-step">
+        <div>
+          <span className="eyebrow">שלב 5</span>
+          <h2>בחירת צבעי חולצות</h2>
+          <p>בחר בדיוק {teamCount} צבעים מתוך ארבעת צבעי המדים.</p>
+        </div>
+        <div className="tb-color-buttons">
+          {TEAM_COLORS.map(team => {
+            const selected = selectedColorKeys.includes(team.key)
+            return <button type="button" key={team.key} className={`team-${team.key} ${selected ? 'selected' : ''}`} onClick={() => toggleTeamColor(team.key)}>{team.name}</button>
+          })}
+        </div>
+        <small className="tb-color-hint">נבחרו {selectedColorKeys.length} מתוך {teamCount}</small>
       </div>
 
       <div className="tb-generate-row">
@@ -774,7 +774,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
               const avg = teamPlayers.length ? Math.round(average(teamPlayers.map(p => p.overall)) * 10) / 10 : 0
               return (
                 <div className={`tb-team-card team-${team.key}`} key={team.key} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, team.key)}>
-                  <div className="tb-team-head"><span>{team.emoji} {team.name}</span><b>{avg || '—'}</b></div>
+                  <div className="tb-team-head"><span>{team.name}</span><b>{avg || '—'}</b></div>
                   <div className="tb-team-players">
                     {teamPlayers.map(player => (
                       <div className="tb-team-player" draggable onDragStart={e => e.dataTransfer.setData('text/player-id', player.id)} key={player.id}>

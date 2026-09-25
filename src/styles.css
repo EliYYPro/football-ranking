@@ -949,3 +949,75 @@ footer{color:#617d93}
   .tb-color-buttons{grid-template-columns:1fr 1fr}.tb-color-buttons button{min-height:50px}
   .tb-history-row,.tb-history-row.head{grid-template-columns:52px 1fr 54px 120px!important}.tb-history-row>span:nth-child(3),.tb-history-row.head>span:nth-child(3),.tb-history-row>span:nth-child(5),.tb-history-row.head>span:nth-child(5){display:none!important}.tb-history-actions{grid-column:1/-1;justify-content:stretch}.tb-history-actions button{flex:1}.tb-history-row.head>span:last-child{display:none}
 }
+
+
+/* =========================================================
+   TEAM BUILDER V4 polish
+   ========================================================= */
+
+/* Slightly darker overall blue accents */
+.primary,
+.login button,
+.archive-tabs button.active,
+.admin-history-tabs button.active{
+  background:linear-gradient(145deg,#0964a9,#128ed8)!important;
+}
+.tb-size-buttons button.selected,
+.tb-selection-order.visible{
+  background:#128ed8!important;
+  border-color:#5fb8eb!important;
+}
+.tb-color-buttons .team-blue{background:#1288d0!important}
+
+/* Highest player level is clearly green */
+.rating-elite{
+  background:#0d4229!important;
+  border-color:#2ab564!important;
+  color:#7af0a9!important;
+}
+.tb-overall.rating-elite b{color:#6bea9f!important}
+
+/* Manage Players: centered, consistent columns */
+.manage-list-v3 .manage-list-head > span{
+  text-align:center!important;
+  justify-self:stretch!important;
+}
+.manage-list-v3>div:not(.manage-list-head):not(.editing-row) > .player{
+  justify-content:center!important;
+  justify-self:stretch!important;
+}
+.manage-list-v3>div:not(.manage-list-head):not(.editing-row) > span:nth-child(2),
+.manage-list-v3>div:not(.manage-list-head):not(.editing-row) > span:nth-child(3){
+  text-align:center!important;
+  justify-self:center!important;
+}
+.manage-list-v3 .manage-actions{
+  justify-content:center!important;
+  justify-self:stretch!important;
+  flex-wrap:nowrap!important;
+}
+.manage-list-v3 .manage-actions button{
+  min-width:78px;
+  text-align:center;
+}
+
+/* Team color selector: name + color only, no icon spacing */
+.tb-color-buttons button,
+.tb-team-head span,
+.public-team-card-head,
+.tb-archive-team>b{
+  text-align:center;
+}
+
+@media(max-width:720px){
+  .manage-list-v3>div:not(.editing-row) > .player{
+    justify-content:flex-start!important;
+  }
+  .manage-list-v3 .manage-actions{
+    justify-content:stretch!important;
+  }
+  .manage-list-v3 .manage-actions button{
+    flex:1;
+    min-width:0;
+  }
+}

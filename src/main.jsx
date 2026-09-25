@@ -144,7 +144,7 @@ function PublicArchive() {
     <Shell>
       <main className="page public-archive">
         <div className="archive-page-head">
-          <div><span className="eyebrow">ארכיון הליגה</span><h1>מחזורים קודמים</h1><p>תמונות הניצחון וחלוקות הקבוצות שאושרו בפועל.</p></div>
+          <div><span className="eyebrow">ארכיון הליגה</span><h1>מחזורים קודמים</h1><p>תמונות הניצחון וחלוקות הקבוצות לפי מחזורים קודמים</p></div>
           <div className="archive-tabs">
             <button type="button" className={mode === 'photos' ? 'active' : ''} onClick={() => setMode('photos')}>📸 היסטוריית תמונות ניצחון</button>
             <button type="button" className={mode === 'teams' ? 'active' : ''} onClick={() => setMode('teams')}>⚽ היסטוריית חלוקה לקבוצות</button>
@@ -174,7 +174,7 @@ function PublicArchive() {
                   <div className="public-team-grid">
                     {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                       <div className={`public-team-card team-${team.key}`} key={team.key}>
-                        <div className="public-team-card-head">{team.emoji} {team.name}</div>
+                        <div className="public-team-card-head">{team.name}</div>
                         {rows.filter(r => r.team_color === team.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(row => (
                           <div className="public-team-player" key={row.player_id}>
                             <img src={row.player?.photo_url || avatarFallback(row.player?.name)} alt="" />
