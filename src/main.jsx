@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass } from './TeamBuilder'
+import TeamAnalytics from './TeamAnalytics'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
@@ -827,6 +828,7 @@ function AdminPanel() {
         <button className={tab === 'round' ? 'active' : ''} onClick={() => setTab('round')}>🏆 עדכון מחזור</button>
         <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>👥 ניהול שחקנים</button>
         <button className={tab === 'teams' ? 'active' : ''} onClick={() => setTab('teams')}>⚖️ חלוקת כוחות</button>
+        <button className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>🕘 היסטוריה</button>
         <button className="admin-home-button" onClick={() => navigate('/')}>⌂ חזרה למסך הראשי</button>
         <button onClick={logout}>↪ יציאה</button>
@@ -987,6 +989,10 @@ function AdminPanel() {
 
         {tab === 'teams' && (
           <TeamBuilder players={players} rounds={rounds} />
+        )}
+
+        {tab === 'analytics' && (
+          <TeamAnalytics players={players} />
         )}
 
         {tab === 'history' && (

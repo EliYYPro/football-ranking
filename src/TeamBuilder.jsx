@@ -76,6 +76,19 @@ function clampRating(value) {
   return Math.max(1, Math.min(10, Math.round(n)))
 }
 
+function ratingForGeneration(rating) {
+  const source = { ...emptyRating, ...(rating || {}) }
+  const normalized = { ...source }
+  RATING_FIELDS.forEach(({ key }) => {
+    const n = Number(source[key])
+    normalized[key] = Number.isFinite(n) && n >= 1 && n <= 10 ? n : 5
+  })
+  normalized.preferred_position = POSITION_OPTIONS.some(([value]) => value === source.preferred_position)
+    ? source.preferred_position
+    : 'general'
+  return normalized
+}
+
 function average(list) {
   if (!list.length) return 0
   return list.reduce((sum, n) => sum + Number(n || 0), 0) / list.length
@@ -192,30 +205,91 @@ function capacitiesFor(count, teamCount) {
 }
 
 function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
-  const baseCaps = capacitiesFor(selectedPlayers.length, activeTeams.length)
-  let best = null
+  if (!Array.isArray(selectedPlayers) || !selectedPlayers.length) return null
+  if (!Array.isArray(activeTeams) || activeTeams.length < 2) return null
 
-  for (let attempt = 0; attempt < 7000; attempt += 1) {
-    const caps = shuffled(baseCaps)
-    const pool = shuffled(selectedPlayers)
-    const teams = activeTeams.map(() => [])
-    let cursor = 0
+  const capacities = capacitiesFor(selectedPlayers.length, activeTeams.length)
+  const averageCapacity = average(capacities)
+  const leagueAverage = average(selectedPlayers.map(p => Number(p.overall || 5)))
 
-    caps.forEach((capacity, teamIndex) => {
-      for (let i = 0; i < capacity; i += 1) {
-        teams[teamIndex].push(pool[cursor])
-        cursor += 1
+  // Build a reliable first draft instead of relying only on thousands of random shuffles.
+  // Players are handled from strongest to weakest. Teams with an extra slot are given a
+  // slightly lower target average so the numerical advantage is compensated by ability.
+  const teams = activeTeams.map(() => [])
+  const ordered = [...selectedPlayers].sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
+
+  ordered.forEach(player => {
+    let bestIndex = -1
+    let bestScore = Infinity
+
+    teams.forEach((team, index) => {
+      if (team.length >= capacities[index]) return
+
+      const next = [...team, player]
+      const targetAverage = leagueAverage - (capacities[index] - averageCapacity) * 0.72
+      const projectedAverage = average(next.map(p => Number(p.overall || 5)))
+      const repeats = team.reduce((sum, teammate) => sum + (pairCounts.get(pairKey(player.id, teammate.id)) || 0), 0)
+      const positions = next.map(p => p.rating?.preferred_position || 'general')
+      const duplicatePositionPenalty = positions.filter(pos => pos === player.rating?.preferred_position && pos !== 'general').length > 1 ? 0.08 : 0
+      const goalkeeperBoost = player.rating?.preferred_position === 'goalkeeper' && team.some(p => p.rating?.preferred_position === 'goalkeeper') ? 0.35 : 0
+
+      const score =
+        Math.abs(projectedAverage - targetAverage) * 2.2 +
+        repeats * 0.34 +
+        duplicatePositionPenalty +
+        goalkeeperBoost +
+        team.length * 0.015
+
+      if (score < bestScore) {
+        bestScore = score
+        bestIndex = index
       }
     })
 
-    const evaluation = evaluateTeams(teams, pairCounts)
-    if (!best || evaluation.objective < best.evaluation.objective) {
-      best = { teams, evaluation }
+    // Defensive fallback: there should always be a team with capacity, but if state/data
+    // is unusual, place the player in the first available team instead of failing silently.
+    if (bestIndex < 0) bestIndex = teams.findIndex((team, index) => team.length < capacities[index])
+    if (bestIndex >= 0) teams[bestIndex].push(player)
+  })
+
+  if (teams.some((team, index) => team.length !== capacities[index])) {
+    // Guaranteed fallback partition. This keeps the button functional even if a future
+    // data edge case makes the greedy pass incomplete.
+    const fallbackTeams = activeTeams.map(() => [])
+    const pool = [...ordered]
+    capacities.forEach((capacity, teamIndex) => {
+      fallbackTeams[teamIndex] = pool.splice(0, capacity)
+    })
+    const fallbackEvaluation = evaluateTeams(fallbackTeams, pairCounts)
+    return { teams: fallbackTeams, evaluation: fallbackEvaluation }
+  }
+
+  let bestTeams = teams.map(team => [...team])
+  let bestEvaluation = evaluateTeams(bestTeams, pairCounts)
+
+  // Lightweight local optimization: swap players between teams when the score improves.
+  // Much faster and more stable on phones than rebuilding 7,000 complete random drafts.
+  for (let attempt = 0; attempt < 650; attempt += 1) {
+    const a = Math.floor(Math.random() * bestTeams.length)
+    let b = Math.floor(Math.random() * bestTeams.length)
+    if (a === b) b = (b + 1) % bestTeams.length
+    if (!bestTeams[a].length || !bestTeams[b].length) continue
+
+    const ai = Math.floor(Math.random() * bestTeams[a].length)
+    const bi = Math.floor(Math.random() * bestTeams[b].length)
+    const candidate = bestTeams.map(team => [...team])
+    ;[candidate[a][ai], candidate[b][bi]] = [candidate[b][bi], candidate[a][ai]]
+
+    const evaluation = evaluateTeams(candidate, pairCounts)
+    if (evaluation.objective < bestEvaluation.objective) {
+      bestTeams = candidate
+      bestEvaluation = evaluation
     }
   }
 
-  return best
+  return { teams: bestTeams, evaluation: bestEvaluation }
 }
+
 
 export function RatingEditor({ player, initialRating, onClose, onSaved = () => {}, readOnly = false }) {
   const [form, setForm] = useState({ ...emptyRating, ...(initialRating || {}) })
@@ -403,6 +477,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [viewRatingPlayer, setViewRatingPlayer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(null)
 
@@ -487,33 +562,52 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setBalanceScore(null)
   }
 
-  function generate() {
+  async function generate() {
     setMessage('')
-    if (activeTeamDefs.length !== teamCount) {
-      setMessage(`שגיאה: צריך לבחור בדיוק ${teamCount} צבעי קבוצות.`)
-      return
-    }
+    setGenerating(true)
 
-    if (selectedPlayers.length < teamCount) {
-      setMessage(`שגיאה: צריך לבחור לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`)
-      return
-    }
+    // Give React one frame to show the loading state before the balancing loop starts.
+    await new Promise(resolve => setTimeout(resolve, 0))
 
-    const unrated = selectedPlayers.filter(p => !ratingComplete(ratings[p.id]))
-    if (unrated.length) {
-      setMessage(`שגיאה: חסרים נתוני יכולת ל-${unrated.length} שחקנים. יש להשלים אותם קודם ב"ניהול שחקנים".`)
-      return
-    }
+    try {
+      if (activeTeamDefs.length !== teamCount) {
+        setMessage(`שגיאה: צריך לבחור בדיוק ${teamCount} צבעי קבוצות.`)
+        return
+      }
 
-    const enriched = selectedPlayers.map(p => ({ ...p, rating: ratings[p.id], overall: overallRating(ratings[p.id]) }))
-    const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs)
-    if (!result) {
-      setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
-      return
-    }
+      if (selectedPlayers.length < teamCount) {
+        setMessage(`שגיאה: צריך לבחור לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`)
+        return
+      }
 
-    setDraftTeams(Object.fromEntries(activeTeamDefs.map((team, i) => [team.key, result.teams[i]])))
-    setBalanceScore(result.evaluation.balanceScore)
+      // Missing/partial ratings should never make the button look broken.
+      // For balancing only, unrated players receive a neutral temporary rating of 5.
+      const unrated = selectedPlayers.filter(p => !ratingComplete(ratings[p.id]))
+      const enriched = selectedPlayers.map(p => {
+        const safeRating = ratingForGeneration(ratings[p.id])
+        return { ...p, rating: safeRating, overall: overallRating(safeRating) ?? 5 }
+      })
+
+      const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs)
+      if (!result) {
+        setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
+        return
+      }
+
+      setDraftTeams(Object.fromEntries(activeTeamDefs.map((team, i) => [team.key, result.teams[i]])))
+      setBalanceScore(result.evaluation.balanceScore)
+
+      if (unrated.length) {
+        const names = unrated.slice(0, 3).map(fullName).join(', ')
+        const more = unrated.length > 3 ? ` ועוד ${unrated.length - 3}` : ''
+        setMessage(`שים לב: ל-${unrated.length} שחקנים חסרים נתונים מלאים (${names}${more}). לצורך החלוקה בלבד הם חושבו זמנית ברמה 5.0. מומלץ להשלים להם נתונים בניהול שחקנים.`)
+      }
+    } catch (err) {
+      console.error('Team generation failed', err)
+      setMessage(`שגיאה ביצירת החלוקה: ${err?.message || 'אירעה תקלה לא צפויה.'}`)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   function recalc(nextTeams) {
@@ -758,7 +852,14 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       </div>
 
       <div className="tb-generate-row">
-        <button type="button" className="primary tb-generate" onClick={generate}>⚖️ צור חלוקה מאוזנת</button>
+        <button type="button" className="primary tb-generate" disabled={generating} onClick={() => void generate()}>{generating ? 'מחשב חלוקה…' : '⚖️ צור חלוקה מאוזנת'}</button>
+        <small className={`tb-generate-readiness ${(selectedPlayers.length >= teamCount && activeTeamDefs.length === teamCount) ? 'ready' : ''}`}>
+          {selectedPlayers.length < teamCount
+            ? `בחר לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`
+            : activeTeamDefs.length !== teamCount
+              ? `בחר בדיוק ${teamCount} צבעי חולצות.`
+              : `מוכן לחלוקה: ${selectedPlayers.length} שחקנים • ${teamCount} קבוצות • ${activeTeamDefs.map(t => t.name).join(', ')}`}
+        </small>
       </div>
 
       {draftTeams && (
@@ -794,7 +895,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           </div>
 
           <div className="tb-results-actions">
-            <button type="button" className="secondary" onClick={generate}>↻ צור חלוקה אחרת</button>
+            <button type="button" className="secondary" disabled={generating} onClick={generate}>{generating ? 'מחשב…' : '↻ צור חלוקה אחרת'}</button>
             <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : editingSessionId ? '✓ שמירת השינויים' : '✓ אישור ושמירת החלוקה'}</button>
           </div>
         </div>
