@@ -217,8 +217,8 @@ function Home() {
                   <span>מקום</span>
                   <span>שחקן</span>
                   <span className="trend-head">מגמה</span>
-                  <span>ניצחונות</span>
-                  <span>נקודות</span>
+                  <span className="wins-head">ניצחונות</span>
+                  <span className="points-head">נקודות</span>
                 </div>
                 {leaderboard.slice(3).map((p, i) => {
                   const rank = i + 4
@@ -234,7 +234,7 @@ function Home() {
                     </span>
                     <span className="trend-col"><TrendArrow trend={trendMap[p.id]} /></span>
                     <span className="wins-col">{p.total_wins}</span>
-                    <strong>{p.total_points}</strong>
+                    <strong className="points-col">{p.total_points}</strong>
                   </Link>
                   )
                 })}

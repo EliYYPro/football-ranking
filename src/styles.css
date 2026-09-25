@@ -761,3 +761,64 @@ footer{color:#617d93}
     line-height:1.2;
   }
 }
+
+
+/* =========================================================
+   V5K — Center wins/points columns on desktop + mobile
+   ========================================================= */
+.wins-head,
+.points-head,
+.wins-col,
+.points-col{
+  width:100%;
+  text-align:center !important;
+  justify-self:stretch !important;
+  align-self:center;
+}
+
+.wins-col,
+.points-col{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.points-col{
+  font-weight:800;
+}
+
+@media(min-width:721px){
+  .wins-head::after,
+  .points-head::after{content:none !important}
+  .wins-head,
+  .points-head{font-size:14px !important}
+}
+
+@media(max-width:720px){
+  .wins-head,
+  .points-head{
+    font-size:0 !important;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+  }
+
+  .wins-head::after{
+    content:"נצ'" !important;
+    font-size:12px !important;
+    color:#7f9db5;
+  }
+
+  .points-head::after{
+    content:"נק'" !important;
+    font-size:12px !important;
+    color:#7f9db5;
+  }
+
+  .wins-col,
+  .points-col{
+    min-width:0 !important;
+    padding:0 !important;
+  }
+}
