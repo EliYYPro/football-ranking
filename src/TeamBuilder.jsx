@@ -465,7 +465,15 @@ export function TeamHistoryPanel({ players = [] }) {
 
 const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
 export const hasTeamDraft = () => { try { const d = JSON.parse(sessionStorage.getItem('football-team-draft') || '{}'); return Boolean(d.editingSessionId || (d.draftTeams && Object.keys(d.draftTeams).length) || (d.selectedIds && d.selectedIds.length)) } catch { return false } }
-const readDraft = () => { try { return JSON.parse(sessionStorage.getItem('football-team-draft') || '{}') } catch { return {} } }
+const readDraft = () => {
+  try {
+    // Only resume a draft after an explicit tab switch, not on a fresh visit or reload.
+    const resume = sessionStorage.getItem('football-resume-team-draft') === 'yes'
+    sessionStorage.removeItem('football-resume-team-draft')
+    if (!resume) { sessionStorage.removeItem('football-team-draft'); return {} }
+    return JSON.parse(sessionStorage.getItem('football-team-draft') || '{}')
+  } catch { return {} }
+}
 export default function TeamBuilder({ players = [], rounds = [] }) {
   const [initialDraft] = useState(readDraft)
   const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
