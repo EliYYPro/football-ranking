@@ -824,6 +824,9 @@ function AdminPanel() {
 
   function changeTab(nextTab) {
     if (tab === 'teams' && nextTab !== 'teams' && hasTeamDraft() && !window.confirm('יש חלוקת כוחות באמצע עריכה. האם אתה בטוח שברצונך לעזוב את המסך? הטיוטה נשמרת ותוכל לחזור אליה.')) return
+    if (tab === 'teams' && nextTab !== 'teams' && hasTeamDraft()) {
+      try { sessionStorage.setItem('football-resume-team-draft', 'yes') } catch {}
+    }
     setTab(nextTab)
   }
 
