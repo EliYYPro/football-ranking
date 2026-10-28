@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
 
+export function CoachAvatar() { return <span className="coach-avatar" role="img" aria-label="מאמן — משרוקית"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13H4a2 2 0 0 0-2 2v5h9"/><path d="M12 10h7l3 4a9 9 0 1 1-10-1z"/><circle cx="21" cy="21" r="3"/><circle cx="15" cy="9" r="2"/></svg></span> }
+
 export const TEAM_COLORS = [
   { key: 'pink', name: 'ורוד' },
   { key: 'blue', name: 'כחול' },
@@ -336,7 +338,7 @@ export function RatingEditor({ player, initialRating, onClose, onSaved = () => {
         </div>
 
         <div className="rating-player-head">
-          <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
+          {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
           <div><b>{fullName(player)}</b><small>רמה כללית מחושבת: {overall ?? '—'}</small></div>
         </div>
 
@@ -821,7 +823,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
             <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''} ${isCoach(player) ? 'coach-row' : ''}`} key={player.id} onClick={() => togglePlayer(player.id)}>
               <label className="tb-check" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
               <span className={`tb-selection-order ${selectionIndex ? 'visible' : ''}`}>{selectionIndex || ''}</span>
-              <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
+              {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
               <div className="tb-player-name"><b>{fullName(player)}</b><small>{isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
               <button type="button" className="secondary" onClick={e => { e.stopPropagation(); setViewRatingPlayer(player) }}>צפייה בנתונים 🔒</button>
@@ -906,7 +908,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
                   <div className="tb-team-players">
                     {teamPlayers.map(player => (
                       <div className="tb-team-player" draggable onDragStart={e => e.dataTransfer.setData('text/player-id', player.id)} key={player.id}>
-                        <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
+                        {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
                         <span><b>{fullName(player)}</b><small>{player.overall}</small></span>
                         <select aria-label={`העבר את ${fullName(player)} לקבוצה`} value={team.key} onChange={e => movePlayer(player.id, e.target.value)}>
                           {activeTeamDefs.map(option => <option key={option.key} value={option.key}>{option.name}</option>)}
