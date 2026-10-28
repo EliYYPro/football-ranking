@@ -1493,3 +1493,26 @@ footer{color:#617d93}
  .analytics-participation-card .analytics-participation-list{max-height:none!important;overflow:visible!important}
  .analytics-participation-list button{min-height:55px}
 }
+
+/* Five- and six-team allocation support */
+.tb-color-buttons{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tb-color-buttons .team-green{background:#3dc780;color:#092b1d}
+.tb-color-buttons .team-green.selected{border-color:#9cfdc5}
+.team-green .tb-team-head{background:#3dc780;color:#092b1d}
+.team-yellow .tb-team-head{background:#f9d748;color:#28200b}
+.team-green .public-team-card-head,.tb-archive-team.team-green>b{background:#3dc780;color:#092b1d}
+.analytics-color.team-green{border-color:#36c88088}
+.analytics-color.team-green span,.analytics-color.team-green b{color:#70eaa9}
+.analytics-color.team-yellow{border-color:#f9d74888}
+.analytics-color.team-yellow span,.analytics-color.team-yellow b{color:#fce777}
+.analytics-history-color.team-green{color:#72e8a9;border-color:#39be8080}
+.analytics-history-color.team-yellow{color:#ffe37c;border-color:#d4ad3280}
+.analytics-colors-wide{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tb-team-count-buttons{display:flex;flex-wrap:nowrap}
+.tb-team-count-buttons button{min-width:0}
+@media(max-width:720px){
+ .tb-color-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tb-team-count-buttons{gap:5px}
+ .tb-team-count-buttons button{min-width:0;width:auto;flex:1;padding:0 3px}
+ .analytics-colors-wide{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
