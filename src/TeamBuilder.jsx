@@ -499,6 +499,27 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   useEffect(() => {
     try { localStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
   }, [selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId])
+  function exitAllocation() {
+    if (!window.confirm('לצאת מחלוקת הכוחות ולמחוק את כל הבחירות והשינויים שלא נשמרו? חלוקות שכבר אושרו יישארו ללא שינוי.')) return
+    setSelectedIds([])
+    setTeamCount(4)
+    setSelectedColorKeys(TEAM_COLORS.slice(0, 4).map(t => t.key))
+    setPreferredSize(5)
+    setSessionDate(new Date().toISOString().slice(0, 10))
+    setRoundNumber(nextRoundNumber)
+    setSearch('')
+    setAttendanceFilter('all')
+    setGenerationMode('balanced')
+    setDraftTeams(null)
+    setBalanceScore(null)
+    setEditingSessionId(null)
+    setUndoStack([])
+    setLockedColorKeys([])
+    setShowConfirmation(false)
+    setMessage('יצאת מחלוקת הכוחות. כל הבחירות שלא נשמרו אופסו.')
+    try { localStorage.removeItem('football-team-draft') } catch {}
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
 
   async function loadPrivateData() {
@@ -864,7 +885,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
               {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
               <div className="tb-player-name"><b>{fullName(player)}</b><small>{isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
-              <button type="button" className="secondary" onClick={e => { e.stopPropagation(); setViewRatingPlayer(player) }}>צפייה בנתונים 🔒</button>
+
             </div>
           )
         })}
@@ -967,6 +988,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
             <button type="button" className="secondary" disabled={!undoStack.length} onClick={undoLast}>↶ בטל פעולה אחרונה</button>
             {editingSessionId && <button type="button" className="secondary" disabled={saving} onClick={cancelEdit}>ביטול עריכה</button>}
             <button type="button" className="secondary" disabled={generating} onClick={generate}>{generating ? 'מחשב…' : '↻ צור חלוקה אחרת'}</button>
+            <button type="button" className="tb-exit-allocation" disabled={saving || generating} onClick={exitAllocation}>✕ יציאה מחלוקה</button>
             <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : editingSessionId ? '✓ שמירת השינויים' : '✓ אישור ושמירת החלוקה'}</button>
           </div>
           {showConfirmation && <div className="card tb-confirm-summary" role="dialog" aria-label="אישור חלוקה"><h3>סיכום לפני שמירה</h3><p>מחזור {roundNumber} · {sessionDate} · {selectedIds.length} שחקנים · {teamCount} קבוצות</p><p>{activeTeamDefs.map(t => `${t.name}: ${draftTeams[t.key]?.length || 0}`).join(' | ')}</p><p>קבוצות עם שחקן נוסף מותרות כאשר מספר השחקנים אינו מתחלק באופן שווה.</p><button type="button" className="secondary" onClick={() => setShowConfirmation(false)}>חזרה לעריכה</button> <button type="button" className="primary compact" onClick={confirmTeams} disabled={saving}>{saving ? 'שומר…' : 'אשר ושמור סופית'}</button></div>}
