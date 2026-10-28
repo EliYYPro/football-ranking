@@ -1433,3 +1433,9 @@ footer{color:#617d93}
 .player-row.rank-five .rank:after{content:'TOP 5';color:#c5a5ec!important}
 .player-row.rank-four:hover{background:linear-gradient(90deg,#4b3919,#342a1b,#162330)!important}
 .player-row.rank-five:hover{background:linear-gradient(90deg,#392a46,#2c263c,#152332)!important}
+
+/* Explicit destructive reset for an unsaved team allocation */
+.tb-results-actions .tb-exit-allocation{background:#80252b;color:#fff;border:1px solid #e75d65;border-radius:11px;padding:11px 17px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px #0002}
+.tb-results-actions .tb-exit-allocation:hover:not(:disabled){background:#a52c34;border-color:#ff8288}
+.tb-results-actions .tb-exit-allocation:disabled{opacity:.48;cursor:not-allowed}
+@media(max-width:720px){.tb-results-actions .tb-exit-allocation{width:100%;min-height:45px}}
