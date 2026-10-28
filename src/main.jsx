@@ -261,6 +261,7 @@ function usePublicHomeData() {
   const [latestRound, setLatestRound] = useState(null)
   const [recentRounds, setRecentRounds] = useState([])
   const [trendMap, setTrendMap] = useState({})
+  const [latestRoundResults, setLatestRoundResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -279,6 +280,7 @@ function usePublicHomeData() {
       setLeaderboard([])
       setRecentRounds([])
       setLatestRound(null)
+      setLatestRoundResults([])
       setTrendMap({})
       setLoading(false)
       return
@@ -289,15 +291,17 @@ function usePublicHomeData() {
     const latest = rounds[0] || null
     const nextTrendMap = {}
 
-    if (latest && rounds.length > 1 && leaders.length > 0) {
+    if (latest) {
       const { data: latestResults, error: resultsError } = await supabase
         .from('results')
         .select('player_id, points, won')
         .eq('round_id', latest.id)
 
       if (resultsError) {
+        setLatestRoundResults([])
         setError(resultsError.message || 'שגיאה בחישוב שינויי הדירוג')
       } else {
+        setLatestRoundResults(latestResults || [])
         const latestResultsMap = Object.fromEntries((latestResults || []).map(r => [r.player_id, r]))
         const previousSnapshot = leaders.map(player => {
           const delta = latestResultsMap[player.id]
@@ -322,6 +326,7 @@ function usePublicHomeData() {
       }
     }
 
+    if (!latest) setLatestRoundResults([])
     setLeaderboard(leaders)
     setRecentRounds(rounds)
     setLatestRound(latest)
@@ -330,7 +335,7 @@ function usePublicHomeData() {
   }
 
   useEffect(() => { load() }, [])
-  return { leaderboard, latestRound, recentRounds, trendMap, loading, error, reload: load }
+  return { leaderboard, latestRound, latestRoundResults, recentRounds, trendMap, loading, error, reload: load }
 }
 
 function PublicStatistics() {
@@ -338,7 +343,7 @@ function PublicStatistics() {
 }
 
 function Home() {
-  const { leaderboard, latestRound, recentRounds, trendMap, loading, error } = usePublicHomeData()
+  const { leaderboard, latestRound, latestRoundResults, recentRounds, trendMap, loading, error } = usePublicHomeData()
   const [lightbox, setLightbox] = useState(null)
 
   return (
@@ -358,6 +363,17 @@ function Home() {
             <div className="hero-crest"><LeagueLogo markOnly /></div>
           </div>
         </section>
+
+        {latestRound && (
+          <section className="card" aria-label="סיכום המחזור האחרון">
+            <div className="section-header-public">
+              <div><span className="eyebrow">סיכום המחזור האחרון</span><h2>מחזור {latestRound.round_number} • {formatDate(latestRound.round_date)}</h2></div>
+            </div>
+            <p><b>{latestRound.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : 'אלופי המחזור'}</b> · {latestRoundResults.length} משתתפים · {latestRoundResults.filter(r => r.won).length} מנצחים · {latestRoundResults.reduce((n,r) => n + Number(r.points || 0),0)} נקודות חולקו</p>
+            {latestRoundResults.some(r => r.won) && <p><b>המנצחים:</b> {latestRoundResults.filter(r=>r.won).map(r=>leaderboard.find(p=>p.id===r.player_id)?.name).filter(Boolean).join(' · ')}</p>}
+            {Object.values(trendMap).some(t => t === 'up' || t === 'down') && <p><b>תנועות בטבלה:</b> {leaderboard.filter(p => trendMap[p.id] === 'up' || trendMap[p.id] === 'down').slice(0,8).map(p => `${p.name} ${trendMap[p.id] === 'up' ? '▲' : '▼'}`).join(' · ')}</p>}
+          </section>
+        )}
 
         {latestRound?.winner_photo_url && (
           <section className="winner-card card">
