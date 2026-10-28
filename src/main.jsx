@@ -151,11 +151,28 @@ function PublicArchive() {
           <div className="archive-tabs">
             <button type="button" className={mode === 'photos' ? 'active' : ''} onClick={() => setMode('photos')}>📸 היסטוריית תמונות ניצחון</button>
             <button type="button" className={mode === 'teams' ? 'active' : ''} onClick={() => setMode('teams')}>⚽ היסטוריית חלוקה לקבוצות</button>
+            <button type="button" className={mode === 'stats' ? 'active' : ''} onClick={() => setMode('stats')}>📊 סטטיסטיקות שחקנים</button>
           </div>
         </div>
 
         {error && <div className="notice error-box">{error}</div>}
-        {loading ? <div className="empty card">טוען ארכיון…</div> : mode === 'photos' ? (
+        {loading ? <div className="empty card">טוען ארכיון…</div> : mode === 'stats' ? (() => {
+          const teamGroups = new Map()
+          const counts = new Map()
+          const teammateSets = new Map()
+          assignments.forEach(row => {
+            counts.set(row.player_id, (counts.get(row.player_id) || 0) + 1)
+            const key = row.session_id + ':' + row.team_color
+            if (!teamGroups.has(key)) teamGroups.set(key, [])
+            teamGroups.get(key).push(row.player_id)
+          })
+          teamGroups.forEach(ids => ids.forEach(id => {
+            if (!teammateSets.has(id)) teammateSets.set(id, new Set())
+            ids.forEach(other => { if (other !== id) teammateSets.get(id).add(other) })
+          }))
+          const names = new Map(assignments.map(row => [row.player_id, row.player?.name || 'שחקן']))
+          return <div className="card tb-public-stats"><h2>סטטיסטיקות חלוקת קבוצות</h2><p>הנתונים מחושבים מהחלוקות המאושרות שפורסמו בארכיון. גלויים לכל המבקרים.</p><div className="tb-public-stats-head"><b>שחקן</b><b>אימונים</b><b>חברים שונים לקבוצה</b></div>{[...counts.keys()].sort((a,b) => counts.get(b)-counts.get(a)).map(id => <div className="tb-public-stats-row" key={id}><span>{names.get(id)}</span><b>{counts.get(id)}</b><b>{teammateSets.get(id)?.size || 0}</b></div>)}</div>
+        })() : mode === 'photos' ? (
           <div className="archive-photo-grid">
             {rounds.filter(r => r.winner_photo_url).length === 0 ? <div className="empty card">עדיין אין תמונות ניצחון בארכיון.</div> : rounds.filter(r => r.winner_photo_url).map(round => (
               <button type="button" className="archive-photo-card card" key={round.id} onClick={() => setLightbox({ url: round.winner_photo_url, alt: `זוכי מחזור ${round.round_number}` })}>
@@ -174,7 +191,10 @@ function PublicArchive() {
                     <div><span className="eyebrow">מחזור {session.round_number || '—'}</span><h2>{formatDate(session.session_date)}</h2></div>
                     <span>{session.selected_count} שחקנים</span>
                   </div>
-                  <div className="public-team-grid">
+                  <button type="button" className="secondary tb-share-teams" onClick={() => {
+                    const text = 'חלוקת קבוצות – מחזור ' + (session.round_number || '') + '\\n' + TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => team.name + ': ' + rows.filter(r => r.team_color === team.key).map(r => r.player?.name || 'שחקן').join(', ')).join('\\n')
+                    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
+                  }}>שיתוף החלוקה בוואטסאפ</button><div className="public-team-grid">
                     {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                       <div className={`public-team-card team-${team.key}`} key={team.key}>
                         <div className="public-team-card-head">{team.name}</div>
