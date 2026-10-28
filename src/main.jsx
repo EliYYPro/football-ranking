@@ -77,6 +77,7 @@ function Shell({ children }) {
         <nav className="topbar-actions">
           <Link to="/" className="home-link">ראשי</Link>
           <Link to="/archive" className="archive-link">ארכיון</Link>
+          <Link to="/statistics" className="archive-link stats-nav-link">📊 נתונים וסטטיסטיקות</Link>
           <Link to="/admin" className="admin-link">Admin</Link>
         </nav>
       </header>
@@ -329,6 +330,10 @@ function usePublicHomeData() {
 
   useEffect(() => { load() }, [])
   return { leaderboard, latestRound, recentRounds, trendMap, loading, error, reload: load }
+}
+
+function PublicStatistics() {
+  return <Shell><main className="page"><TeamAnalytics publicView /></main></Shell>
 }
 
 function Home() {
@@ -1121,6 +1126,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/archive" element={<PublicArchive />} />
+        <Route path="/statistics" element={<PublicStatistics />} />
         <Route path="/player/:id" element={<Player />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
