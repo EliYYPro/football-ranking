@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass } from './TeamBuilder'
+import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar } from './TeamBuilder'
 import TeamAnalytics from './TeamAnalytics'
 import './styles.css'
 
@@ -822,7 +822,13 @@ function AdminPanel() {
     if (!error) loadData()
   }
 
+  function changeTab(nextTab) {
+    if (tab === 'teams' && nextTab !== 'teams' && hasTeamDraft() && !window.confirm('יש חלוקת כוחות באמצע עריכה. האם אתה בטוח שברצונך לעזוב את המסך? הטיוטה נשמרת ותוכל לחזור אליה.')) return
+    setTab(nextTab)
+  }
+
   async function logout() {
+    if (tab === 'teams' && hasTeamDraft() && !window.confirm('יש חלוקת כוחות באמצע עריכה. האם אתה בטוח שברצונך לצאת?')) return
     await supabase.auth.signOut()
     navigate('/')
   }
@@ -831,12 +837,12 @@ function AdminPanel() {
     <div className="admin-layout">
       <aside>
         <Link to="/" className="brand"><LeagueLogo /></Link>
-        <button className={tab === 'round' ? 'active' : ''} onClick={() => setTab('round')}>🏆 עדכון מחזור</button>
-        <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>👥 ניהול שחקנים</button>
-        <button className={tab === 'teams' ? 'active' : ''} onClick={() => setTab('teams')}>⚖️ חלוקת כוחות</button>
-        <button className={tab === 'analytics' ? 'active' : ''} onClick={() => setTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
-        <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>🕘 היסטוריה</button>
-        <button className="admin-home-button" onClick={() => navigate('/')}>⌂ חזרה למסך הראשי</button>
+        <button className={tab === 'round' ? 'active' : ''} onClick={() => changeTab('round')}>🏆 עדכון מחזור</button>
+        <button className={tab === 'players' ? 'active' : ''} onClick={() => changeTab('players')}>👥 ניהול שחקנים</button>
+        <button className={tab === 'teams' ? 'active' : ''} onClick={() => changeTab('teams')}>⚖️ חלוקת כוחות</button>
+        <button className={tab === 'analytics' ? 'active' : ''} onClick={() => changeTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
+        <button className={tab === 'history' ? 'active' : ''} onClick={() => changeTab('history')}>🕘 היסטוריה</button>
+        <button className="admin-home-button" onClick={() => { if (tab !== 'teams' || !hasTeamDraft() || window.confirm('יש חלוקת כוחות באמצע עריכה. האם לעזוב את המסך?')) navigate('/') }}>⌂ חזרה למסך הראשי</button>
         <button onClick={logout}>↪ יציאה</button>
       </aside>
 
@@ -869,7 +875,7 @@ function AdminPanel() {
                   onClick={() => toggleWinner(p.id)}
                 >
                   <span className="player admin-player">
-                    <img src={p.photo_url || avatarFallback(p.name)} alt="" />
+                    {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
                     <b>{p.name}</b>
                   </span>
                   <span className="winner-check" aria-hidden="true">{wins[p.id] ? '✓' : ''}</span>
@@ -940,7 +946,7 @@ function AdminPanel() {
                   {editingPlayerId === p.id ? (
                     <div className="player-edit-panel">
                       <div className="player-edit-head">
-                        <img src={p.photo_url || avatarFallback(p.name)} alt="" />
+                        {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
                         <div>
                           <b>עריכת שחקן</b>
                           <small>אפשר לשנות שם פרטי, שם משפחה וגם להחליף תמונה.</small>
@@ -974,7 +980,7 @@ function AdminPanel() {
                   ) : (
                     <>
                       <span className="player">
-                        <img src={p.photo_url || avatarFallback(p.name)} alt="" />
+                        {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
                         <span className="player-text"><b>{p.name}</b>{isCoach(p) && <small>מאמן • משתתף בחלוקה לפי הצורך</small>}</span>
                       </span>
                       <span className={`player-rating-badge ${ratingLevelClass(playerOverall)}`}>{playerOverall ?? '—'}</span>
