@@ -641,6 +641,7 @@ function AdminPanel() {
   const [initialRoundDraft] = useState(readRoundDraft)
   const [roundDraftActive, setRoundDraftActive] = useState(Boolean(initialRoundDraft))
   const [roundDraftSavedAt, setRoundDraftSavedAt] = useState(initialRoundDraft?.updatedAt || null)
+  const [editingRoundId, setEditingRoundId] = useState(initialRoundDraft?.editingRoundId || null)
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
   useEffect(() => { try { sessionStorage.setItem('football-admin-tab', tab) } catch {} }, [tab])
   const [players, setPlayers] = useState([])
@@ -695,9 +696,9 @@ function AdminPanel() {
   useEffect(() => {
     if (!roundDraftActive) return
     const updatedAt = Date.now()
-    try { localStorage.setItem(ROUND_DRAFT_KEY, JSON.stringify({ roundNumber, roundDate, wins, attended, roundPoints, isDraw, updatedAt })) } catch {}
+    try { localStorage.setItem(ROUND_DRAFT_KEY, JSON.stringify({ roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId, updatedAt })) } catch {}
     setRoundDraftSavedAt(updatedAt)
-  }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw])
+  }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId])
 
   function startRoundDraft() { if (!roundDraftActive) setRoundDraftActive(true) }
   function clearRoundDraft() {
@@ -707,6 +708,7 @@ function AdminPanel() {
   }
   function discardRoundDraft() {
     clearRoundDraft()
+    setEditingRoundId(null)
     setRoundNumber(nextRound)
     setRoundDate(new Date().toISOString().slice(0,10))
     setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
@@ -811,6 +813,7 @@ function AdminPanel() {
       }
 
       clearRoundDraft()
+      setEditingRoundId(null)
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
       setWins({})
       setAttended({})
@@ -828,6 +831,7 @@ function AdminPanel() {
   async function loadRoundForEditing(round) {
     if (roundDraftActive && !window.confirm('יש טיוטת מחזור שלא נשמרה. לטעון מחזור אחר ולדרוס את הטיוטה?')) return
     startRoundDraft()
+    setEditingRoundId(round.id)
     setTab('round')
     setRoundNumber(round.round_number)
     setRoundDate(round.round_date)
@@ -973,11 +977,12 @@ function AdminPanel() {
             <div className="section-title">
               <div><span className="eyebrow">ADMIN</span><h1>עדכון תוצאות מחזור</h1></div>
               <div className="round-fields">
-                <label>מחזור<input type="number" min="1" value={roundNumber} onChange={e => { startRoundDraft(); setRoundNumber(e.target.value) }} /></label>
+                <label className="round-stepper-field">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => { startRoundDraft(); setRoundNumber(n => Math.max(1, (Number(n) || 1) - 1)) }}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => { startRoundDraft(); setRoundNumber(n => (Number(n) || 0) + 1) }}>›</button></div></label>
                 <label>תאריך<input type="date" value={roundDate} onChange={e => { startRoundDraft(); setRoundDate(e.target.value) }} /></label>
               </div>
             </div>
 
+            <div className="round-new-actions"><button type="button" className="secondary" onClick={() => { if (roundDraftActive && !window.confirm('להתחיל מחזור חדש? הטיוטה הנוכחית שלא נשמרה תימחק.')) return; discardRoundDraft(); setStatus('מחזור חדש מוכן לעדכון.') }}>＋ מחזור חדש ({nextRound})</button>{editingRoundId && <span>עורך מחזור קודם – ניתן לחזור למחזור הבא בלחיצה על ״מחזור חדש״</span>}</div>
             {roundDraftActive && <div className="round-draft-banner" role="status"><span>💾 טיוטת מחזור {roundNumber} נשמרת אוטומטית במכשיר הזה. אפשר לעבור לוואטסאפ ולחזור בלי לאבד את הסימונים.</span><button type="button" onClick={() => { if (window.confirm("למחוק את הטיוטה ולהתחיל מחדש?")) discardRoundDraft() }}>מחק טיוטה</button></div>}
             <div className="card score-list winner-select-list">
               <div className="winner-list-intro">
