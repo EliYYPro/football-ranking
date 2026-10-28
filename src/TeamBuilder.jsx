@@ -780,6 +780,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       </div>
 
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
+      {editingSessionId && <button type="button" className="secondary tb-cancel-edit" onClick={cancelEdit}>✕ בטל עריכת חלוקה שמורה</button>}
 
       <div className="card tb-round-setup">
         <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>מספר המחזור הבא נשמר לפי ההיסטוריה ולא חוזר אחורה.</p></div>
