@@ -90,6 +90,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
   const visiblePlayers = publicView ? publicPlayers : players
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [roundAppearances, setRoundAppearances] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [range, setRange] = useState('all')
@@ -99,6 +100,8 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
     async function load() {
       setLoading(true)
       setError('')
+      const { data: leaders } = await supabase.from('leaderboard').select('id, rounds_played')
+      setRoundAppearances(Object.fromEntries((leaders || []).map(p => [p.id, Number(p.rounds_played || 0)])))
       if (publicView) {
         const { data, error: archiveError } = await supabase.from('public_team_archive').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false })
         if (archiveError) { setError(archiveError.message || 'שגיאה בטעינת הנתונים הציבוריים'); setSessions([]); setAssignments([]) }
@@ -259,6 +262,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
                 <div><h3>{fullName(selectedStats.player)}</h3><span>{selectedStats.appearances} הופעות בטווח שנבחר</span></div>
               </div>
               <div className="analytics-mini-kpis">
+                <div><b>{roundAppearances[selectedStats.player.id] ?? 0}</b><span>השתתפות במחזורי הליגה</span></div>
                 <div><b>{selectedStats.uniqueTeammates}</b><span>חברים שונים לקבוצה</span></div>
                 <div><b>{selectedStats.teammates[0]?.count || 0}</b><span>מקסימום עם אותו שחקן</span></div>
                 <div><b>{selectedSessions.length}</b><span>מחזורים מתועדים</span></div>
