@@ -143,6 +143,41 @@ function PublicArchive() {
     load()
   }, [])
 
+  function downloadTeamsImage(session, rows) {
+    const colors = TEAM_COLORS.filter(t => rows.some(r => r.team_color === t.key))
+    const namesByColor = colors.map(t => ({ name: t.name, players: rows.filter(r => r.team_color === t.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(r => r.player?.name || 'שחקן') }))
+    const canvas = document.createElement('canvas')
+    const width = 1080
+    const columns = 2, gap = 24, cardWidth = 496, cardTop = 170
+    const maxRows = Math.max(1, ...namesByColor.map(t => t.players.length))
+    const cardHeight = 95 + maxRows * 48
+    canvas.width = width
+    canvas.height = 205 + Math.ceil(colors.length / columns) * (cardHeight + gap)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#061727'; ctx.fillRect(0,0,canvas.width,canvas.height)
+    ctx.direction = 'rtl'
+    ctx.textAlign = 'right'
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 42px Arial'
+    ctx.fillText('ותיקי רמת אפעל | חלוקת קבוצות',1020,67)
+    ctx.fillStyle = '#8cc7f2'; ctx.font = '26px Arial'
+    ctx.fillText('מחזור ' + (session.round_number || '') + ' • ' + formatDate(session.session_date),1020,114)
+    const fills = { pink:'#fa419f',blue:'#1288d0',cyan:'#59d8ec',white:'#ecf3f8',yellow:'#f9d748' }
+    colors.forEach((team,i) => {
+      const x = i % 2 === 0 ? 560 : 24
+      const y = cardTop + Math.floor(i/2) * (cardHeight + gap)
+      ctx.fillStyle = '#10283b';ctx.fillRect(x,y,cardWidth,cardHeight)
+      ctx.fillStyle = fills[colors[i].key] || '#ffffff';ctx.fillRect(x,y,cardWidth,58)
+      ctx.fillStyle = '#101c2b';ctx.font = 'bold 27px Arial';ctx.fillText(team.name,x+cardWidth-20,y+38)
+      ctx.fillStyle = '#ffffff';ctx.font = '22px Arial'
+      team.players.forEach((name,j) => ctx.fillText(name,x+cardWidth-20,y+102+j*48))
+    })
+    const link = document.createElement('a')
+    link.download = 'ramat-efaal-teams-round-' + (session.round_number || 'latest') + '.png'
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
+
   return (
     <Shell>
       <main className="page public-archive">
@@ -191,6 +226,7 @@ function PublicArchive() {
                     <div><span className="eyebrow">מחזור {session.round_number || '—'}</span><h2>{formatDate(session.session_date)}</h2></div>
                     <span>{session.selected_count} שחקנים</span>
                   </div>
+                  <button type="button" className="secondary tb-share-teams" onClick={() => downloadTeamsImage(session, rows)}>הורד תמונת קבוצות</button>
                   <button type="button" className="secondary tb-share-teams" onClick={() => {
                     const text = 'חלוקת קבוצות – מחזור ' + (session.round_number || '') + '\\n' + TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => team.name + ': ' + rows.filter(r => r.team_color === team.key).map(r => r.player?.name || 'שחקן').join(', ')).join('\\n')
                     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
