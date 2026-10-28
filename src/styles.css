@@ -1402,3 +1402,13 @@ footer{color:#617d93}
 .round-draft-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;margin:0 0 18px;border:1px solid #277852;border-radius:13px;background:#0c3026;color:#cbf7de;font-size:14px;font-weight:700}
 .round-draft-banner button{border:1px solid #b37373;border-radius:9px;background:#351e29;color:#ffe0e0;padding:8px 12px;cursor:pointer;font-weight:800;white-space:nowrap}
 @media(max-width:720px){.round-draft-banner{align-items:flex-start;flex-direction:column;font-size:12px}.round-draft-banner button{width:100%}}
+
+/* Round results: same tappable round stepper as team builder */
+.round-fields .round-stepper-field{min-width:188px;display:flex;flex-direction:column;gap:7px}
+.round-fields .tb-round-stepper{width:100%;min-width:188px}
+.round-fields .tb-round-stepper button{touch-action:manipulation}
+.round-new-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 15px}
+.round-new-actions button{padding:12px 20px;background:#124265;border:1px solid #4c9dd3;color:#d8f1ff;border-radius:12px;font-weight:900;cursor:pointer}
+.round-new-actions button:hover{background:#17608c}
+.round-new-actions span{color:#9cb7ca;font-size:13px}
+@media(max-width:720px){.round-fields .round-stepper-field{width:100%;min-width:0}.round-fields .tb-round-stepper{min-width:0}.round-new-actions button{width:100%}}
