@@ -85,7 +85,9 @@ function buildAnalytics(sessions, assignments, players) {
   return { pairs, playerStats, playerMap }
 }
 
-export default function TeamAnalytics({ players = [] }) {
+export default function TeamAnalytics({ players = [], publicView = false }) {
+  const [publicPlayers, setPublicPlayers] = useState([])
+  const visiblePlayers = publicView ? publicPlayers : players
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,6 +99,18 @@ export default function TeamAnalytics({ players = [] }) {
     async function load() {
       setLoading(true)
       setError('')
+      if (publicView) {
+        const { data, error: archiveError } = await supabase.from('public_team_archive').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false })
+        if (archiveError) { setError(archiveError.message || 'שגיאה בטעינת הנתונים הציבוריים'); setSessions([]); setAssignments([]) }
+        else {
+          const rows = data || []
+          setSessions([...new Map(rows.map(row => [row.session_id, { id: row.session_id, round_number: row.round_number, session_date: row.session_date, selected_count: row.selected_count, preferred_team_size: row.preferred_team_size, team_count: row.team_count, balance_score: row.balance_score }])).values()].sort((a,b) => (b.round_number || 0)-(a.round_number || 0)))
+          setAssignments(rows.map(row => ({ session_id: row.session_id, player_id: row.player_id, team_color: row.team_color, team_position: row.team_position })))
+          setPublicPlayers([...new Map(rows.map(row => [row.player_id, { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url }])).values()])
+        }
+        setLoading(false)
+        return
+      }
       const [sessionsRes, assignmentsRes] = await Promise.all([
         supabase.from('training_sessions').select('*').eq('status', 'confirmed').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }),
         supabase.from('training_assignments').select('*'),
@@ -127,8 +141,8 @@ export default function TeamAnalytics({ players = [] }) {
   }, [filteredSessions, assignments])
 
   const analytics = useMemo(
-    () => buildAnalytics(filteredSessions, filteredAssignments, players),
-    [filteredSessions, filteredAssignments, players]
+    () => buildAnalytics(filteredSessions, filteredAssignments, visiblePlayers),
+    [filteredSessions, filteredAssignments, visiblePlayers]
   )
 
   useEffect(() => {
@@ -170,7 +184,7 @@ export default function TeamAnalytics({ players = [] }) {
     <section className="analytics-page">
       <div className="section-title analytics-title">
         <div>
-          <span className="eyebrow">ADMIN • פרטי</span>
+          <span className="eyebrow">{publicView ? 'הליגה • נתונים ציבוריים' : 'ADMIN • פרטי'}</span>
           <h1>נתונים וסטטיסטיקות</h1>
           <p>ניתוח חלוקות הכוחות שאושרו בפועל: השתתפות, צמדים, צבעי קבוצות והיסטוריה לכל שחקן.</p>
         </div>
