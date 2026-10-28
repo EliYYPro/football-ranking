@@ -507,7 +507,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   useEffect(() => {
     try { sessionStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
   }, [selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId])
-  function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
+  function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
 
   async function loadPrivateData() {
     setLoading(true)
@@ -560,11 +560,11 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const actualCaps = capacitiesFor(selectedPlayers.length, teamCount)
   const extraVsTarget = selectedPlayers.length - desiredTotal
 
-  function pushUndo() { setUndoStack(prev => [...prev.slice(-19), { draftTeams, selectedColorKeys, balanceScore, lockedColorKeys }]) }
+  function pushUndo() { setUndoStack(prev => [...prev.slice(-19), { draftTeams, selectedColorKeys, balanceScore, lockedColorKeys, selectedIds }]) }
   function undoLast() {
     const previous = undoStack[undoStack.length - 1]
     if (!previous) return
-    setDraftTeams(previous.draftTeams); setSelectedColorKeys(previous.selectedColorKeys); setBalanceScore(previous.balanceScore); setLockedColorKeys(previous.lockedColorKeys)
+    setDraftTeams(previous.draftTeams); setSelectedColorKeys(previous.selectedColorKeys); setBalanceScore(previous.balanceScore); setLockedColorKeys(previous.lockedColorKeys); setSelectedIds(previous.selectedIds)
     setUndoStack(prev => prev.slice(0, -1))
   }
 
@@ -609,6 +609,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   }
 
   function togglePlayer(id) {
+    pushUndo()
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
     setDraftTeams(null)
     setBalanceScore(null)
