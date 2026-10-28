@@ -468,16 +468,8 @@ export function TeamHistoryPanel({ players = [] }) {
 }
 
 const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
-export const hasTeamDraft = () => { try { const d = JSON.parse(sessionStorage.getItem('football-team-draft') || '{}'); return Boolean(d.editingSessionId || (d.draftTeams && Object.keys(d.draftTeams).length) || (d.selectedIds && d.selectedIds.length)) } catch { return false } }
-const readDraft = () => {
-  try {
-    // Only resume a draft after an explicit tab switch, not on a fresh visit or reload.
-    const resume = sessionStorage.getItem('football-resume-team-draft') === 'yes'
-    sessionStorage.removeItem('football-resume-team-draft')
-    if (!resume) { sessionStorage.removeItem('football-team-draft'); return {} }
-    return JSON.parse(sessionStorage.getItem('football-team-draft') || '{}')
-  } catch { return {} }
-}
+export const hasTeamDraft = () => { try { const d = JSON.parse(localStorage.getItem('football-team-draft') || '{}'); return Boolean(d.editingSessionId || (d.draftTeams && Object.keys(d.draftTeams).length) || (d.selectedIds && d.selectedIds.length)) } catch { return false } }
+const readDraft = () => { try { return JSON.parse(localStorage.getItem('football-team-draft') || '{}') } catch { return {} } }
 export default function TeamBuilder({ players = [], rounds = [] }) {
   const [initialDraft] = useState(readDraft)
   const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
@@ -505,7 +497,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [message, setMessage] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(initialDraft.editingSessionId || null)
   useEffect(() => {
-    try { sessionStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
+    try { localStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
   }, [selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId])
   function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
 
@@ -789,7 +781,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setShowConfirmation(false)
     setUndoStack([])
     setLockedColorKeys([])
-    try { sessionStorage.removeItem('football-team-draft') } catch {}
+    try { localStorage.removeItem('football-team-draft') } catch {}
     await loadPrivateData()
     if (!wasEditing) setRoundNumber(number + 1)
   }
