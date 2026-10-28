@@ -1383,3 +1383,9 @@ footer{color:#617d93}
  .analytics-kpis .analytics-kpi{min-height:135px;padding:16px!important}
  .analytics-kpis .analytics-kpi>b{font-size:34px!important}
 }
+
+/* Public analytics entry points */
+.home-stats-cta{display:inline-flex;align-items:center;gap:8px;margin-top:15px;padding:12px 19px;border-radius:13px;border:1px solid #3a9dcc;background:linear-gradient(135deg,#0b6aab,#128cbe);color:#fff;font-weight:900;box-shadow:0 6px 20px #0003}
+.home-stats-cta:hover{background:#168bc4;color:#fff}
+.stats-nav-link{border-color:#2d6b8c!important;background:#0b2a40;color:#a6e1ff!important}
+@media(max-width:720px){.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.stats-nav-link{font-size:11px!important;padding:6px!important}.home-stats-cta{font-size:14px}}
