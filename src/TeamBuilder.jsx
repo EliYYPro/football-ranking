@@ -6,6 +6,7 @@ export const TEAM_COLORS = [
   { key: 'blue', name: 'כחול' },
   { key: 'cyan', name: 'תכלת' },
   { key: 'white', name: 'לבן' },
+  { key: 'yellow', name: 'צהוב' },
 ]
 
 export const RATING_FIELDS = [
@@ -460,26 +461,33 @@ export function TeamHistoryPanel({ players = [] }) {
   )
 }
 
+const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
+const readDraft = () => { try { return JSON.parse(sessionStorage.getItem('football-team-draft') || '{}') } catch { return {} } }
 export default function TeamBuilder({ players = [], rounds = [] }) {
-  const activePlayers = useMemo(() => players.filter(p => p.is_active), [players])
+  const [initialDraft] = useState(readDraft)
+  const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
   const [ratings, setRatings] = useState({})
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
-  const [selectedIds, setSelectedIds] = useState([])
-  const [teamCount, setTeamCount] = useState(4)
-  const [selectedColorKeys, setSelectedColorKeys] = useState(TEAM_COLORS.map(t => t.key))
-  const [preferredSize, setPreferredSize] = useState(5)
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10))
-  const [roundNumber, setRoundNumber] = useState(1)
+  const [selectedIds, setSelectedIds] = useState(initialDraft.selectedIds || [])
+  const [teamCount, setTeamCount] = useState(initialDraft.teamCount || 4)
+  const [selectedColorKeys, setSelectedColorKeys] = useState(initialDraft.selectedColorKeys || TEAM_COLORS.slice(0,4).map(t => t.key))
+  const [preferredSize, setPreferredSize] = useState(initialDraft.preferredSize || 5)
+  const [sessionDate, setSessionDate] = useState(initialDraft.sessionDate || new Date().toISOString().slice(0, 10))
+  const [roundNumber, setRoundNumber] = useState(initialDraft.roundNumber || 1)
   const [search, setSearch] = useState('')
-  const [draftTeams, setDraftTeams] = useState(null)
-  const [balanceScore, setBalanceScore] = useState(null)
+  const [draftTeams, setDraftTeams] = useState(initialDraft.draftTeams || null)
+  const [balanceScore, setBalanceScore] = useState(initialDraft.balanceScore ?? null)
   const [viewRatingPlayer, setViewRatingPlayer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [message, setMessage] = useState('')
-  const [editingSessionId, setEditingSessionId] = useState(null)
+  const [editingSessionId, setEditingSessionId] = useState(initialDraft.editingSessionId || null)
+  useEffect(() => {
+    try { sessionStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
+  }, [selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId])
+  function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
 
   async function loadPrivateData() {
     setLoading(true)
@@ -718,6 +726,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setBalanceScore(null)
     setSelectedIds([])
     setEditingSessionId(null)
+    try { sessionStorage.removeItem('football-team-draft') } catch {}
     await loadPrivateData()
     if (!wasEditing) setRoundNumber(number + 1)
   }
@@ -792,18 +801,19 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           const position = POSITION_OPTIONS.find(([value]) => value === rating?.preferred_position)?.[1]
           const selectionIndex = selectedIds.indexOf(player.id) + 1
           return (
-            <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''}`} key={player.id}>
-              <label className="tb-check"><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
+            <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''} ${isCoach(player) ? 'coach-row' : ''}`} key={player.id} onClick={() => togglePlayer(player.id)}>
+              <label className="tb-check" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
               <span className={`tb-selection-order ${selectionIndex ? 'visible' : ''}`}>{selectionIndex || ''}</span>
               <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />
-              <div className="tb-player-name"><b>{fullName(player)}</b><small>{position || 'ללא עמדה'}</small></div>
+              <div className="tb-player-name"><b>{fullName(player)}</b><small>{isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
-              <button type="button" className="secondary" onClick={() => setViewRatingPlayer(player)}>צפייה בנתונים 🔒</button>
+              <button type="button" className="secondary" onClick={e => { e.stopPropagation(); setViewRatingPlayer(player) }}>צפייה בנתונים 🔒</button>
             </div>
           )
         })}
       </div>
 
+      <div className="tb-attendance-total" role="status">סה״כ סומנו עד עכשיו <strong>{selectedPlayers.length}</strong> שחקנים</div>
       <div className="card tb-controls tb-controls-after-attendance">
         <div>
           <span className="eyebrow">שלב 3</span>
@@ -901,6 +911,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         </div>
       )}
 
+      {editingSessionId && <button type="button" className="secondary tb-cancel-edit" onClick={cancelEdit}>ביטול עריכת חלוקה שמורה</button>}
       <div className="card tb-history">
         <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות ממחזורים קודמים</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
         {!sessions.length ? <div className="empty">עדיין לא נשמרה חלוקת כוחות.</div> : (
