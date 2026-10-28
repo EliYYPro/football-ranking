@@ -1462,3 +1462,34 @@ footer{color:#617d93}
  .latest-round-summary .section-header-public h2{font-size:clamp(21px,6vw,30px);line-height:1.3}
  .latest-round-summary p{font-size:14px}
 }
+
+/* Latest round summary: deliberate inner spacing on every viewport */
+.page > .latest-round-summary.card{
+  padding:24px 28px!important;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:12px;
+  overflow:hidden;
+}
+.latest-round-summary .section-header-public{width:100%;margin:0!important;display:block;text-align:right}
+.latest-round-summary .section-header-public>div{width:100%;min-width:0}
+.latest-round-summary .section-header-public h2{margin:7px 0 0!important;font-size:clamp(23px,3vw,32px);line-height:1.35;white-space:normal;overflow-wrap:normal}
+.latest-round-summary p{margin:0!important;line-height:1.75;white-space:normal;overflow-wrap:break-word}
+@media(max-width:760px){
+ .page > .latest-round-summary.card{padding:20px 18px!important;gap:10px;margin-top:20px}
+ .latest-round-summary .section-header-public h2{font-size:clamp(21px,6vw,27px)!important}
+ .latest-round-summary p{font-size:14px;line-height:1.8}
+}
+/* Participation roster: show all players directly, no hidden scroll region */
+.analytics-participation-card .analytics-participation-list{
+  max-height:none!important;
+  height:auto!important;
+  overflow:visible!important;
+  padding-left:0;
+}
+.analytics-participation-card{height:auto;align-self:start}
+@media(max-width:720px){
+ .analytics-participation-card .analytics-participation-list{max-height:none!important;overflow:visible!important}
+ .analytics-participation-list button{min-height:55px}
+}
