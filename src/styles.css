@@ -1316,3 +1316,13 @@ footer{color:#617d93}
 .tb-attendance-total strong{color:#7ad4ff;font-size:22px}
 .tb-cancel-edit{display:block;margin:12px 0 18px;max-width:100%}
 .round-points-panel .secondary.selected{background:#164e35!important;border:1px solid #4bd48a!important;color:#c5fbdc!important}
+
+/* Inline shirt-color editing and coach whistle */
+.tb-team-color-label{display:inline-flex;align-items:center;max-width:72%}
+.tb-team-color-label select{font:inherit;font-weight:900;font-size:17px;color:inherit;background:rgba(0,0,0,.15);border:1px solid currentColor;border-radius:9px;padding:5px 8px;cursor:pointer;max-width:100%;text-align:center}
+.tb-team-color-label select option{background:#10283b;color:#fff}
+.coach-avatar{width:44px;height:44px;display:inline-flex;flex:none;align-items:center;justify-content:center;border-radius:12px;background:#372b12;border:1px solid #e2c46b;color:#f8d969;vertical-align:middle}
+.coach-avatar svg{height:28px;width:28px}
+.tb-team-player .coach-avatar,.tb-player-row .coach-avatar{width:44px;height:44px}
+.tb-results-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
