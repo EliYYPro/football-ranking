@@ -351,6 +351,7 @@ function Home() {
             <h1>טבלת ליגת<br />ותיקי רמת אפעל</h1>
             <div className="season-ribbon">עונת 2026/27</div>
             <p>הדירוג מתעדכן אוטומטית אחרי כל מחזור.</p>
+            <Link to="/statistics" className="home-stats-cta">📊 נתונים וסטטיסטיקות של הליגה ←</Link>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="hero-ball"><span>VRA</span></div>
