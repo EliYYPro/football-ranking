@@ -118,7 +118,9 @@ function pairKey(a, b) {
 
 function buildPairCounts(sessions, assignments) {
   const counts = new Map()
-  const recentIds = new Set(sessions.slice(0, 12).map(s => s.id))
+  const recentSessions = sessions.slice(0, 12)
+  const weights = new Map(recentSessions.map((s,i) => [s.id, i < 3 ? 3 : i < 6 ? 2 : 1]))
+  const recentIds = new Set(weights.keys())
   const grouped = new Map()
 
   assignments.filter(a => recentIds.has(a.session_id)).forEach(a => {
@@ -127,11 +129,12 @@ function buildPairCounts(sessions, assignments) {
     grouped.get(key).push(a.player_id)
   })
 
-  grouped.forEach(ids => {
+  grouped.forEach((ids, teamKey) => {
+    const sessionId = teamKey.split(':')[0]
     for (let i = 0; i < ids.length; i += 1) {
       for (let j = i + 1; j < ids.length; j += 1) {
         const key = pairKey(ids[i], ids[j])
-        counts.set(key, (counts.get(key) || 0) + 1)
+        counts.set(key, (counts.get(key) || 0) + (weights.get(sessionId) || 1))
       }
     }
   })
@@ -152,7 +155,7 @@ function teamMetrics(team) {
   }
 }
 
-function evaluateTeams(teams, pairCounts) {
+function evaluateTeams(teams, pairCounts, mode = 'balanced') {
   const metrics = teams.map(teamMetrics)
   const avgSize = average(metrics.map(m => m.size))
 
@@ -186,7 +189,7 @@ function evaluateTeams(teams, pairCounts) {
     variance(metrics.map(m => m.speed)) * 1.4 +
     variance(metrics.map(m => m.goalkeeper)) * 2.3 +
     positionPenalty * 1.6 +
-    repeatPenalty * 0.32
+    repeatPenalty * (mode === 'variety' ? 2.0 : mode === 'skill' ? 0.08 : 0.55)
 
   const range = values => Math.max(...values) - Math.min(...values)
   const qualityPenalty =
@@ -207,7 +210,7 @@ function capacitiesFor(count, teamCount) {
   return Array.from({ length: safeTeamCount }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
+function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 'balanced', lockedTeams = {}) {
   if (!Array.isArray(selectedPlayers) || !selectedPlayers.length) return null
   if (!Array.isArray(activeTeams) || activeTeams.length < 2) return null
 
@@ -218,8 +221,9 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
   // Build a reliable first draft instead of relying only on thousands of random shuffles.
   // Players are handled from strongest to weakest. Teams with an extra slot are given a
   // slightly lower target average so the numerical advantage is compensated by ability.
-  const teams = activeTeams.map(() => [])
-  const ordered = [...selectedPlayers].sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
+  const teams = activeTeams.map(t => [...(lockedTeams[t.key] || [])])
+  const lockedIds = new Set(Object.values(lockedTeams).flat().map(p => p.id))
+  const ordered = selectedPlayers.filter(p => !lockedIds.has(p.id)).sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
 
   ordered.forEach(player => {
     let bestIndex = -1
@@ -238,7 +242,7 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
 
       const score =
         Math.abs(projectedAverage - targetAverage) * 2.2 +
-        repeats * 0.34 +
+        repeats * (mode === 'variety' ? 2.0 : mode === 'skill' ? 0.08 : 0.55) +
         duplicatePositionPenalty +
         goalkeeperBoost +
         team.length * 0.015
@@ -258,17 +262,17 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
   if (teams.some((team, index) => team.length !== capacities[index])) {
     // Guaranteed fallback partition. This keeps the button functional even if a future
     // data edge case makes the greedy pass incomplete.
-    const fallbackTeams = activeTeams.map(() => [])
+    const fallbackTeams = activeTeams.map(t => [...(lockedTeams[t.key] || [])])
     const pool = [...ordered]
     capacities.forEach((capacity, teamIndex) => {
-      fallbackTeams[teamIndex] = pool.splice(0, capacity)
+      fallbackTeams[teamIndex].push(...pool.splice(0, Math.max(0, capacity - fallbackTeams[teamIndex].length)))
     })
-    const fallbackEvaluation = evaluateTeams(fallbackTeams, pairCounts)
+    const fallbackEvaluation = evaluateTeams(fallbackTeams, pairCounts, mode)
     return { teams: fallbackTeams, evaluation: fallbackEvaluation }
   }
 
   let bestTeams = teams.map(team => [...team])
-  let bestEvaluation = evaluateTeams(bestTeams, pairCounts)
+  let bestEvaluation = evaluateTeams(bestTeams, pairCounts, mode)
 
   // Lightweight local optimization: swap players between teams when the score improves.
   // Much faster and more stable on phones than rebuilding 7,000 complete random drafts.
@@ -276,14 +280,14 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams) {
     const a = Math.floor(Math.random() * bestTeams.length)
     let b = Math.floor(Math.random() * bestTeams.length)
     if (a === b) b = (b + 1) % bestTeams.length
-    if (!bestTeams[a].length || !bestTeams[b].length) continue
+    if (!bestTeams[a].length || !bestTeams[b].length || Object.keys(lockedTeams).includes(activeTeams[a].key) || Object.keys(lockedTeams).includes(activeTeams[b].key)) continue
 
     const ai = Math.floor(Math.random() * bestTeams[a].length)
     const bi = Math.floor(Math.random() * bestTeams[b].length)
     const candidate = bestTeams.map(team => [...team])
     ;[candidate[a][ai], candidate[b][bi]] = [candidate[b][bi], candidate[a][ai]]
 
-    const evaluation = evaluateTeams(candidate, pairCounts)
+    const evaluation = evaluateTeams(candidate, pairCounts, mode)
     if (evaluation.objective < bestEvaluation.objective) {
       bestTeams = candidate
       bestEvaluation = evaluation
@@ -487,6 +491,11 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [sessionDate, setSessionDate] = useState(initialDraft.sessionDate || new Date().toISOString().slice(0, 10))
   const [roundNumber, setRoundNumber] = useState(initialDraft.roundNumber || 1)
   const [search, setSearch] = useState('')
+  const [attendanceFilter, setAttendanceFilter] = useState('all')
+  const [generationMode, setGenerationMode] = useState('balanced')
+  const [lockedColorKeys, setLockedColorKeys] = useState([])
+  const [undoStack, setUndoStack] = useState([])
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const [draftTeams, setDraftTeams] = useState(initialDraft.draftTeams || null)
   const [balanceScore, setBalanceScore] = useState(initialDraft.balanceScore ?? null)
   const [viewRatingPlayer, setViewRatingPlayer] = useState(null)
@@ -543,14 +552,21 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
   const visiblePlayers = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return activePlayers
-    return activePlayers.filter(p => fullName(p).toLowerCase().includes(q))
-  }, [activePlayers, search])
+    return activePlayers.filter(p => (!q || fullName(p).toLowerCase().includes(q)) && (attendanceFilter === 'all' || (attendanceFilter === 'selected' ? selectedIds.includes(p.id) : !selectedIds.includes(p.id))))
+  }, [activePlayers, search, attendanceFilter, selectedIds])
 
   const activeTeamDefs = useMemo(() => TEAM_COLORS.filter(t => selectedColorKeys.includes(t.key)).slice(0, teamCount), [selectedColorKeys, teamCount])
   const desiredTotal = preferredSize * teamCount
   const actualCaps = capacitiesFor(selectedPlayers.length, teamCount)
   const extraVsTarget = selectedPlayers.length - desiredTotal
+
+  function pushUndo() { setUndoStack(prev => [...prev.slice(-19), { draftTeams, selectedColorKeys, balanceScore, lockedColorKeys }]) }
+  function undoLast() {
+    const previous = undoStack[undoStack.length - 1]
+    if (!previous) return
+    setDraftTeams(previous.draftTeams); setSelectedColorKeys(previous.selectedColorKeys); setBalanceScore(previous.balanceScore); setLockedColorKeys(previous.lockedColorKeys)
+    setUndoStack(prev => prev.slice(0, -1))
+  }
 
   function changeTeamCount(nextCount) {
     const count = Number(nextCount)
@@ -571,6 +587,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       setMessage('הצבע הזה כבר בשימוש בקבוצה אחרת. בחר צבע שאינו בשימוש.')
       return
     }
+    pushUndo()
     setDraftTeams(prev => {
       if (!prev) return prev
       const next = { ...prev, [newKey]: prev[oldKey] || [] }
@@ -623,12 +640,14 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         return { ...p, rating: safeRating, overall: overallRating(safeRating) ?? 5 }
       })
 
-      const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs)
+      const lockedTeams = Object.fromEntries(lockedColorKeys.filter(key => draftTeams?.[key]).map(key => [key, draftTeams[key]]))
+      const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs, generationMode, lockedTeams)
       if (!result) {
         setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
         return
       }
 
+      if (draftTeams) pushUndo()
       setDraftTeams(Object.fromEntries(activeTeamDefs.map((team, i) => [team.key, result.teams[i]])))
       setBalanceScore(result.evaluation.balanceScore)
 
@@ -653,6 +672,8 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
   function movePlayer(playerId, targetColor) {
     if (!draftTeams) return
+    if (lockedColorKeys.includes(targetColor) || activeTeamDefs.some(t => lockedColorKeys.includes(t.key) && (draftTeams[t.key] || []).some(p => p.id === playerId))) { setMessage('הקבוצה נעולה. פתח את הנעילה לפני העברת שחקנים.'); return }
+    pushUndo()
     const next = Object.fromEntries(activeTeamDefs.map(t => [t.key, [...(draftTeams[t.key] || [])]]))
     let moving = null
     activeTeamDefs.forEach(t => {
@@ -670,7 +691,18 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     if (playerId) movePlayer(playerId, targetColor)
   }
 
+  function validateTeams() {
+    if (!draftTeams) return 'לא נוצרה חלוקה.'
+    if (activeTeamDefs.length !== teamCount) return 'מספר צבעי הקבוצות אינו תואם.'
+    const ids = activeTeamDefs.flatMap(team => (draftTeams[team.key] || []).map(p => p.id))
+    if (ids.length !== selectedIds.length || new Set(ids).size !== ids.length || selectedIds.some(id => !ids.includes(id))) return 'חסרים שחקנים או שיש שחקן שמופיע ביותר מקבוצה אחת.'
+    if (activeTeamDefs.some(team => !draftTeams[team.key]?.length)) return 'אחת הקבוצות ריקה.'
+    return ''
+  }
   async function confirmTeams() {
+    const validation = validateTeams()
+    if (validation) { setMessage(`שגיאה: ${validation}`); setShowConfirmation(false); return }
+    if (!showConfirmation) { setShowConfirmation(true); return }
     if (!draftTeams) return
     setSaving(true)
     setMessage('')
@@ -753,6 +785,9 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setBalanceScore(null)
     setSelectedIds([])
     setEditingSessionId(null)
+    setShowConfirmation(false)
+    setUndoStack([])
+    setLockedColorKeys([])
     try { sessionStorage.removeItem('football-team-draft') } catch {}
     await loadPrivateData()
     if (!wasEditing) setRoundNumber(number + 1)
@@ -795,6 +830,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setRoundNumber(session.round_number || nextRoundNumber)
     setBalanceScore(Number(session.balance_score || 0))
     setEditingSessionId(session.id)
+    setLockedColorKeys([]); setUndoStack([]); setShowConfirmation(false)
     setMessage(`חלוקת מחזור ${session.round_number || '—'} נטענה לעריכה. לאחר השינויים לחץ על אישור ושמירה.`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -822,6 +858,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           <input type="search" placeholder="חיפוש שחקן…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
+        <div className="tb-filter-buttons">{[['all','כולם'],['selected','סומנו'],['unselected','לא סומנו']].map(([key,label]) => <button type="button" key={key} className={attendanceFilter === key ? 'active' : ''} onClick={() => setAttendanceFilter(key)}>{label}</button>)}</div>
         {loading ? <div className="empty">טוען נתונים…</div> : visiblePlayers.map(player => {
           const rating = ratings[player.id]
           const overall = overallRating(rating)
@@ -840,6 +877,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         })}
       </div>
 
+      <div className="tb-mobile-attendance"><b>נבחרו {selectedIds.length} שחקנים</b><button type="button" onClick={() => document.querySelector('.tb-controls-after-attendance')?.scrollIntoView({behavior:'smooth'})}>המשך לחלוקה ↓</button></div>
       <div className="tb-attendance-total" role="status">סה״כ סומנו עד עכשיו <strong>{selectedPlayers.length}</strong> שחקנים</div>
       <div className="card tb-controls tb-controls-after-attendance">
         <div>
@@ -888,6 +926,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         <small className="tb-color-hint">נבחרו {selectedColorKeys.length} מתוך {teamCount}</small>
       </div>
 
+      <div className="card tb-mode-selector"><b>מצב חלוקה</b><div className="tb-filter-buttons">{[['balanced','מאוזן ומשולב'],['skill','איזון מקסימלי'],['variety','גיוון מקסימלי']].map(([key,label]) => <button type="button" key={key} className={generationMode === key ? 'active' : ''} onClick={() => setGenerationMode(key)}>{label}</button>)}</div></div>
       <div className="tb-generate-row">
         <button type="button" className="primary tb-generate" disabled={generating} onClick={() => void generate()}>{generating ? 'מחשב חלוקה…' : '⚖️ צור חלוקה מאוזנת'}</button>
         <small className={`tb-generate-readiness ${(selectedPlayers.length >= teamCount && activeTeamDefs.length === teamCount) ? 'ready' : ''}`}>
@@ -912,7 +951,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
               const avg = teamPlayers.length ? Math.round(average(teamPlayers.map(p => p.overall)) * 10) / 10 : 0
               return (
                 <div className={`tb-team-card team-${team.key}`} key={team.key} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, team.key)}>
-                  <div className="tb-team-head"><label className="tb-team-color-label"><span className="sr-only">צבע הקבוצה</span><select aria-label="שינוי צבע הקבוצה" value={team.key} onChange={e => changeDraftTeamColor(team.key, e.target.value)}>{TEAM_COLORS.map(option => <option key={option.key} value={option.key} disabled={option.key !== team.key && selectedColorKeys.includes(option.key)}>{option.name}</option>)}</select></label><b>{avg || '—'}</b></div>
+                  <div className="tb-team-head"><button type="button" className="tb-lock-button" aria-pressed={lockedColorKeys.includes(team.key)} onClick={() => setLockedColorKeys(prev => prev.includes(team.key) ? prev.filter(k => k !== team.key) : [...prev, team.key])}>{lockedColorKeys.includes(team.key) ? '🔒 נעולה' : '🔓 נעילה'}</button><label className="tb-team-color-label"><span className="sr-only">צבע הקבוצה</span><select aria-label="שינוי צבע הקבוצה" value={team.key} onChange={e => changeDraftTeamColor(team.key, e.target.value)}>{TEAM_COLORS.map(option => <option key={option.key} value={option.key} disabled={option.key !== team.key && selectedColorKeys.includes(option.key)}>{option.name}</option>)}</select></label><b>{avg || '—'}</b></div>
                   <div className="tb-team-players">
                     {teamPlayers.map(player => (
                       <div className="tb-team-player" draggable onDragStart={e => e.dataTransfer.setData('text/player-id', player.id)} key={player.id}>
@@ -932,10 +971,12 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           </div>
 
           <div className="tb-results-actions">
+            <button type="button" className="secondary" disabled={!undoStack.length} onClick={undoLast}>↶ בטל פעולה אחרונה</button>
             {editingSessionId && <button type="button" className="secondary" disabled={saving} onClick={cancelEdit}>ביטול עריכה</button>}
             <button type="button" className="secondary" disabled={generating} onClick={generate}>{generating ? 'מחשב…' : '↻ צור חלוקה אחרת'}</button>
             <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : editingSessionId ? '✓ שמירת השינויים' : '✓ אישור ושמירת החלוקה'}</button>
           </div>
+          {showConfirmation && <div className="card tb-confirm-summary" role="dialog" aria-label="אישור חלוקה"><h3>סיכום לפני שמירה</h3><p>מחזור {roundNumber} · {sessionDate} · {selectedIds.length} שחקנים · {teamCount} קבוצות</p><p>{activeTeamDefs.map(t => `${t.name}: ${draftTeams[t.key]?.length || 0}`).join(' | ')}</p><p>קבוצות עם שחקן נוסף מותרות כאשר מספר השחקנים אינו מתחלק באופן שווה.</p><button type="button" className="secondary" onClick={() => setShowConfirmation(false)}>חזרה לעריכה</button> <button type="button" className="primary compact" onClick={confirmTeams} disabled={saving}>{saving ? 'שומר…' : 'אשר ושמור סופית'}</button></div>}
         </div>
       )}
 
