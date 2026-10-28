@@ -649,6 +649,7 @@ function AdminPanel() {
   const [roundNumber, setRoundNumber] = useState(1)
   const [roundDate, setRoundDate] = useState(new Date().toISOString().slice(0, 10))
   const [wins, setWins] = useState({})
+  const [attended, setAttended] = useState({})
   const [roundPoints, setRoundPoints] = useState(null)
   const [isDraw, setIsDraw] = useState(false)
   const [winnerFile, setWinnerFile] = useState(null)
@@ -699,6 +700,11 @@ function AdminPanel() {
 
   function toggleWinner(playerId) {
     setWins(prev => ({ ...prev, [playerId]: !prev[playerId] }))
+    setAttended(prev => ({ ...prev, [playerId]: true }))
+  }
+  function toggleAttendance(playerId) {
+    setAttended(prev => ({ ...prev, [playerId]: !prev[playerId] }))
+    if (attended[playerId]) setWins(prev => ({ ...prev, [playerId]: false }))
   }
 
   function toggleRoundPoints(value) {
@@ -713,6 +719,8 @@ function AdminPanel() {
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
 
       const winnerPlayers = isDraw ? [] : activePlayers.filter(p => Boolean(wins[p.id]))
+      const attendancePlayers = activePlayers.filter(p => Boolean(attended[p.id]) || (!isDraw && Boolean(wins[p.id])))
+      if (!attendancePlayers.length) throw new Error('בחר לפחות שחקן אחד שהשתתף במחזור.')
       if (!isDraw && !winnerPlayers.length) throw new Error('בחר מנצחים או סמן תיקו ללא אלופי מחזור.')
       if (winnerPlayers.length > 0 && !roundPoints) {
         throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
@@ -746,18 +754,21 @@ function AdminPanel() {
         roundRow = data
       }
 
-      const rows = winnerPlayers.map(p => ({
+      const winnerIds = new Set(winnerPlayers.map(p => p.id))
+      const rows = attendancePlayers.map(p => ({
         round_id: roundRow.id,
         player_id: p.id,
-        points: Number(roundPoints),
-        won: true,
+        points: winnerIds.has(p.id) ? Number(roundPoints) : 0,
+        won: winnerIds.has(p.id),
         opponent_team: null,
       }))
 
       const selectedIds = new Set(rows.map(r => r.player_id))
       const activeIds = new Set(activePlayers.map(p => p.id))
-      const idsToDelete = results
-        .filter(r => r.round_id === roundRow.id && activeIds.has(r.player_id) && !selectedIds.has(r.player_id))
+      const { data: existingResults, error: existingResultsError } = await supabase.from('results').select('id, player_id').eq('round_id', roundRow.id)
+      if (existingResultsError) throw existingResultsError
+      const idsToDelete = (existingResults || [])
+        .filter(r => activeIds.has(r.player_id) && !selectedIds.has(r.player_id))
         .map(r => r.id)
 
       if (idsToDelete.length) {
@@ -772,6 +783,7 @@ function AdminPanel() {
 
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
       setWins({})
+      setAttended({})
       setRoundPoints(null)
       setIsDraw(false)
       setWinnerFile(null)
@@ -790,7 +802,9 @@ function AdminPanel() {
     setWinnerFile(null)
     setIsDraw(round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור')
 
-    const roundResults = results.filter(r => r.round_id === round.id && r.won)
+    const allRoundResults = results.filter(r => r.round_id === round.id)
+    setAttended(Object.fromEntries(allRoundResults.map(r => [r.player_id, true])))
+    const roundResults = allRoundResults.filter(r => r.won)
     const winMap = {}
     roundResults.forEach(r => { winMap[r.player_id] = true })
     setWins(winMap)
@@ -930,6 +944,20 @@ function AdminPanel() {
                 <label>מחזור<input type="number" min="1" value={roundNumber} onChange={e => setRoundNumber(e.target.value)} /></label>
                 <label>תאריך<input type="date" value={roundDate} onChange={e => setRoundDate(e.target.value)} /></label>
               </div>
+            </div>
+
+            <div className="card score-list winner-select-list">
+              <div className="winner-list-intro">
+                <div><span className="eyebrow">נוכחות</span><h2>מי השתתף במחזור?</h2><p>מסמנים את כל המשתתפים, גם אם המחזור הסתיים בתיקו. שחקן שהשתתף ללא ניצחון מקבל 0 נקודות.</p></div>
+                <span className="winner-count">סומנו {activePlayers.filter(p => attended[p.id]).length} משתתפים</span>
+              </div>
+              {loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.map(p => (
+                <button type="button" className={`winner-row ${attended[p.id] ? 'selected' : ''}`} key={p.id} aria-pressed={Boolean(attended[p.id])} onClick={() => toggleAttendance(p.id)}>
+                  <span className="player admin-player"><img src={p.photo_url || avatarFallback(p.name)} alt="" /><b>{p.name}</b></span>
+                  <span className="winner-check" aria-hidden="true">{attended[p.id] ? '✓' : ''}</span>
+                  <span className="winner-label">{attended[p.id] ? 'השתתף' : 'סמן השתתפות'}</span>
+                </button>
+              ))}
             </div>
 
             <div className="card score-list winner-select-list">
