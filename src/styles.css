@@ -1385,7 +1385,15 @@ footer{color:#617d93}
 }
 
 /* Public analytics entry points */
-.home-stats-cta{display:inline-flex;align-items:center;gap:8px;margin-top:15px;padding:12px 19px;border-radius:13px;border:1px solid #3a9dcc;background:linear-gradient(135deg,#0b6aab,#128cbe);color:#fff;font-weight:900;box-shadow:0 6px 20px #0003}
-.home-stats-cta:hover{background:#168bc4;color:#fff}
+/* Dedicated full-width statistics link below the leaderboard */
+.home-statistics-section{margin:24px 0 34px}
+.home-statistics-row{display:flex;align-items:center;gap:18px;min-height:102px;padding:22px 26px;border-radius:20px;border:1px solid #2673a5;background:linear-gradient(115deg,#0c263b,#0a1a2a);color:#eef9ff;transition:background .2s,border-color .2s,transform .2s;box-shadow:0 12px 28px #0002}
+.home-statistics-row:hover{border-color:#62c0ff;background:linear-gradient(115deg,#114062,#0b253c);transform:translateY(-1px)}
+.home-statistics-row-icon{display:grid;place-items:center;width:58px;height:58px;flex-shrink:0;border-radius:15px;background:#0e5782;font-size:28px}
+.home-statistics-row-copy{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.home-statistics-row-copy b{font-size:23px;font-weight:900}
+.home-statistics-row-copy small{font-size:14px;color:#a5c4d9}
+.home-statistics-row-arrow{font-size:30px;font-weight:900;color:#60c3ff}
+@media(max-width:720px){.home-statistics-section{margin:20px 0 26px}.home-statistics-row{gap:12px;padding:16px;border-radius:15px;min-height:84px}.home-statistics-row-icon{width:45px;height:45px;font-size:22px}.home-statistics-row-copy b{font-size:18px}.home-statistics-row-copy small{font-size:12px}.home-statistics-row-arrow{font-size:23px}}
 .stats-nav-link{border-color:#2d6b8c!important;background:#0b2a40;color:#a6e1ff!important}
 @media(max-width:720px){.topbar-actions{flex-wrap:wrap;justify-content:flex-end}.stats-nav-link{font-size:11px!important;padding:6px!important}.home-stats-cta{font-size:14px}}
