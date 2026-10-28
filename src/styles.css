@@ -1415,3 +1415,21 @@ footer{color:#617d93}
 
 .round-roster-notice{margin:0 0 18px;padding:18px 22px;color:#c6f3df;background:#0b3027;border:1px solid #257c58;border-radius:13px;line-height:1.8}
 .round-roster-notice b{color:#75ecaa}
+
+/* Top five distinction: fourth and fifth are also recognized finishers */
+.player-row.rank-four{
+  background:linear-gradient(90deg,#3a2d15 0%,#2e2619 55%,#111c28 100%)!important;
+  box-shadow:inset 5px 0 #e8b74c!important;
+  border-color:#896b34!important;
+}
+.player-row.rank-five{
+  background:linear-gradient(90deg,#2c2435 0%,#242235 55%,#101b28 100%)!important;
+  box-shadow:inset 5px 0 #b795db!important;
+  border-color:#715687!important;
+}
+.player-row.rank-four .rank,.player-row.rank-four .points-col{color:#ffd477!important}
+.player-row.rank-five .rank,.player-row.rank-five .points-col{color:#dec0ff!important}
+.player-row.rank-four .rank:after{content:'TOP 5';color:#edbc62!important}
+.player-row.rank-five .rank:after{content:'TOP 5';color:#c5a5ec!important}
+.player-row.rank-four:hover{background:linear-gradient(90deg,#4b3919,#342a1b,#162330)!important}
+.player-row.rank-five:hover{background:linear-gradient(90deg,#392a46,#2c263c,#152332)!important}
