@@ -659,6 +659,9 @@ function AdminPanel() {
   const [roundPoints, setRoundPoints] = useState(initialRoundDraft?.roundPoints ?? null)
   const [isDraw, setIsDraw] = useState(initialRoundDraft?.isDraw || false)
   const [winnerFile, setWinnerFile] = useState(null)
+  const [allocationIds, setAllocationIds] = useState(null)
+  const [allocationLoading, setAllocationLoading] = useState(false)
+  const [allocationError, setAllocationError] = useState('')
 
   const [newFirstName, setNewFirstName] = useState('')
   const [newLastName, setNewLastName] = useState('')
@@ -726,6 +729,24 @@ function AdminPanel() {
   }
 
   const activePlayers = players.filter(p => p.is_active && !isCoach(p))
+  useEffect(() => {
+    let cancelled = false
+    async function getAttendance() {
+      setAllocationLoading(true); setAllocationIds(null); setAllocationError('')
+      const { data: session, error } = await supabase.from('training_sessions').select('id').eq('round_number', Number(roundNumber)).eq('status', 'confirmed').maybeSingle()
+      if (cancelled) return
+      if (error) { setAllocationError('לא ניתן לבדוק את חלוקת הכוחות: ' + error.message); setAllocationLoading(false); return }
+      if (!session) { setAllocationLoading(false); return }
+      const response = await supabase.from('training_assignments').select('player_id').eq('session_id', session.id)
+      if (cancelled) return
+      if (response.error) setAllocationError('לא ניתן לטעון משתתפים: ' + response.error.message)
+      else setAllocationIds([...new Set((response.data || []).map(row => row.player_id))])
+      setAllocationLoading(false)
+    }
+    if (Number(roundNumber) > 0) getAttendance()
+    return () => { cancelled = true }
+  }, [roundNumber, tab])
+  const roundParticipants = allocationIds === null ? activePlayers.filter(p => attended[p.id] || wins[p.id]) : activePlayers.filter(p => allocationIds.includes(p.id))
 
   async function uploadImage(bucket, file, prefix) {
     if (!file) return ''
@@ -759,9 +780,18 @@ function AdminPanel() {
       const number = Number(roundNumber)
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
 
-      const winnerPlayers = isDraw ? [] : activePlayers.filter(p => Boolean(wins[p.id]))
-      const attendancePlayers = activePlayers.filter(p => Boolean(attended[p.id]) || (!isDraw && Boolean(wins[p.id])))
-      if (!attendancePlayers.length) throw new Error('בחר לפחות שחקן אחד שהשתתף במחזור.')
+      const { data: allocationSession, error: allocationLookupError } = await supabase.from('training_sessions').select('id').eq('round_number', number).eq('status', 'confirmed').maybeSingle()
+      if (allocationLookupError) throw allocationLookupError
+      let participantIds = null
+      if (allocationSession) {
+        const { data: roster, error: rosterError } = await supabase.from('training_assignments').select('player_id').eq('session_id', allocationSession.id)
+        if (rosterError) throw rosterError
+        participantIds = new Set((roster || []).map(row => row.player_id))
+      }
+      const attendancePlayers = activePlayers.filter(p => participantIds ? participantIds.has(p.id) : Boolean(attended[p.id] || wins[p.id]))
+      const winnerPlayers = isDraw ? [] : attendancePlayers.filter(p => Boolean(wins[p.id]))
+      if (!attendancePlayers.length) throw new Error(participantIds ? 'לא נמצאו שחקנים בחלוקת הכוחות המאושרת של המחזור.' : 'בחר לפחות שחקן אחד שהשתתף במחזור.')
+      if (!isDraw && activePlayers.some(p => wins[p.id] && !attendancePlayers.some(a => a.id === p.id))) throw new Error('סומנו מנצחים שאינם רשומים כמשתתפים בחלוקת הכוחות. בטל את הסימון שלהם.')
       if (!isDraw && !winnerPlayers.length) throw new Error('בחר מנצחים או סמן תיקו ללא אלופי מחזור.')
       if (winnerPlayers.length > 0 && !roundPoints) {
         throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
@@ -994,9 +1024,9 @@ function AdminPanel() {
 
             <div className="round-new-actions"><button type="button" className="secondary" onClick={() => { if (roundDraftActive && !window.confirm('להתחיל מחזור חדש? הטיוטה הנוכחית שלא נשמרה תימחק.')) return; discardRoundDraft(); setStatus('מחזור חדש מוכן לעדכון.') }}>＋ מחזור חדש ({nextRound})</button>{editingRoundId && <span>עורך מחזור קודם – ניתן לחזור למחזור הבא בלחיצה על ״מחזור חדש״</span>}</div>
             {roundDraftActive && <div className="round-draft-banner" role="status"><span>💾 טיוטת מחזור {roundNumber} נשמרת אוטומטית במכשיר הזה. אפשר לעבור לוואטסאפ ולחזור בלי לאבד את הסימונים.</span><button type="button" onClick={() => { if (window.confirm("למחוק את הטיוטה ולהתחיל מחדש?")) discardRoundDraft() }}>מחק טיוטה</button></div>}
-            <div className="card score-list winner-select-list">
+            {allocationLoading ? <div className="card empty">טוען משתתפים מחלוקת הכוחות…</div> : allocationError ? <div className="notice error-box">{allocationError}</div> : allocationIds !== null ? <div className="card round-roster-notice">✓ רשימת המשתתפים נלקחת אוטומטית מחלוקת הכוחות המאושרת של מחזור {roundNumber}: <b>{roundParticipants.length} שחקנים</b>. אין צורך לסמן נוכחות שוב.</div> : <div className="card score-list winner-select-list">
               <div className="winner-list-intro">
-                <div><span className="eyebrow">נוכחות</span><h2>מי השתתף במחזור?</h2><p>מסמנים את כל המשתתפים, גם אם המחזור הסתיים בתיקו. שחקן שהשתתף ללא ניצחון מקבל 0 נקודות.</p></div>
+                <div><span className="eyebrow">נוכחות (ללא חלוקה שמורה)</span><h2>מי השתתף במחזור?</h2><p>מסמנים את כל המשתתפים, גם אם המחזור הסתיים בתיקו. שחקן שהשתתף ללא ניצחון מקבל 0 נקודות.</p></div>
                 <span className="winner-count">סומנו {activePlayers.filter(p => attended[p.id]).length} משתתפים</span>
               </div>
               {loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.map(p => (
@@ -1006,7 +1036,7 @@ function AdminPanel() {
                   <span className="winner-label">{attended[p.id] ? 'השתתף' : 'סמן השתתפות'}</span>
                 </button>
               ))}
-            </div>
+            </div>}
 
             <div className="card score-list winner-select-list">
               <div className="winner-list-intro">
@@ -1016,7 +1046,7 @@ function AdminPanel() {
                 </div>
                 <span className="winner-count">נבחרו {Object.values(wins).filter(Boolean).length} מנצחים</span>
               </div>
-              {isDraw ? <div className="empty">הוגדר תיקו — אין צורך לבחור מנצחים.</div> : loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.length === 0 ? <div className="empty">הוסף שחקנים כדי להזין תוצאות.</div> : activePlayers.map(p => (
+              {isDraw ? <div className="empty">הוגדר תיקו — אין צורך לבחור מנצחים.</div> : loading ? <div className="empty">טוען שחקנים…</div> : roundParticipants.length === 0 ? <div className="empty">אין משתתפים רשומים למחזור הזה. ודא שיש חלוקת כוחות מאושרת או סמן נוכחות ידנית.</div> : roundParticipants.map(p => (
                 <button
                   type="button"
                   className={`winner-row ${wins[p.id] ? 'selected' : ''}`}
@@ -1068,7 +1098,7 @@ function AdminPanel() {
               </div>
             </div>
 
-            <button className="primary big" disabled={busy} onClick={saveRound}>{busy ? 'שומר…' : 'שמור מחזור'}</button>
+            <button className="primary big" disabled={busy || allocationLoading || Boolean(allocationError)} onClick={saveRound}>{busy ? 'שומר…' : 'שמור מחזור'}</button>
           </section>
         )}
 
