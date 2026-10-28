@@ -351,7 +351,6 @@ function Home() {
             <h1>טבלת ליגת<br />ותיקי רמת אפעל</h1>
             <div className="season-ribbon">עונת 2026/27</div>
             <p>הדירוג מתעדכן אוטומטית אחרי כל מחזור.</p>
-            <Link to="/statistics" className="home-stats-cta">📊 נתונים וסטטיסטיקות של הליגה ←</Link>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="hero-ball"><span>VRA</span></div>
@@ -435,6 +434,14 @@ function Home() {
             )}
           </>
         )}
+
+        <section className="home-statistics-section" aria-label="נתונים וסטטיסטיקות">
+          <Link to="/statistics" className="home-statistics-row">
+            <span className="home-statistics-row-icon" aria-hidden="true">📊</span>
+            <span className="home-statistics-row-copy"><b>נתונים וסטטיסטיקות</b><small>השתתפות, צמדי שחקנים, חלוקות ונתונים לאורך העונה</small></span>
+            <span className="home-statistics-row-arrow" aria-hidden="true">←</span>
+          </Link>
+        </section>
 
         {recentRounds.length > 0 && (
           <section className="recent-rounds">
