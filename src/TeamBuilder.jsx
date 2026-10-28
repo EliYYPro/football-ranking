@@ -848,7 +848,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       <div className="card tb-round-setup">
         <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>מספר המחזור הבא נשמר לפי ההיסטוריה ולא חוזר אחורה.</p></div>
         <div className="tb-round-fields">
-          <label>מספר מחזור<input type="number" min="1" value={roundNumber} onChange={e => setRoundNumber(e.target.value)} /></label>
+          <label className="tb-round-number-label">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מספר מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => setRoundNumber(n => Math.max(1, (Number(n) || 1) - 1))}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => setRoundNumber(n => (Number(n) || 0) + 1)}>›</button></div></label>
           <label>תאריך<input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></label>
         </div>
       </div>
@@ -859,7 +859,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           <input type="search" placeholder="חיפוש שחקן…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        <div className="tb-filter-buttons">{[['all','כולם'],['selected','סומנו'],['unselected','לא סומנו']].map(([key,label]) => <button type="button" key={key} className={attendanceFilter === key ? 'active' : ''} onClick={() => setAttendanceFilter(key)}>{label}</button>)}</div>
+        <div className="tb-attendance-toolbar"><span className="tb-attendance-toolbar-title">הצג שחקנים</span><div className="tb-filter-buttons tb-attendance-filters">{[['all','כולם'],['selected','סומנו'],['unselected','לא סומנו']].map(([key,label]) => <button type="button" key={key} className={attendanceFilter === key ? 'active' : ''} onClick={() => setAttendanceFilter(key)}>{label}{key === 'selected' ? ` (${selectedIds.length})` : ''}</button>)}</div></div>
         {loading ? <div className="empty">טוען נתונים…</div> : visiblePlayers.map(player => {
           const rating = ratings[player.id]
           const overall = overallRating(rating)
