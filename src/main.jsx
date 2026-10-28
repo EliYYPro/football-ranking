@@ -30,6 +30,8 @@ const splitPlayerName = (player = {}) => {
 
 const joinPlayerName = (first, last) => [first?.trim(), last?.trim()].filter(Boolean).join(' ')
 
+const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
+const coachLast = (a,b) => Number(isCoach(a)) - Number(isCoach(b))
 const compareLeaderboard = (a, b) =>
   (Number(b.total_points) - Number(a.total_points)) ||
   (Number(b.total_wins) - Number(a.total_wins)) ||
@@ -224,7 +226,7 @@ function usePublicHomeData() {
       return
     }
 
-    const leaders = [...(leadersRes.data || [])].sort(compareLeaderboard)
+    const leaders = (leadersRes.data || []).filter(p => !isCoach(p)).sort(compareLeaderboard)
     const rounds = roundsRes.data || []
     const latest = rounds[0] || null
     const nextTrendMap = {}
@@ -428,7 +430,7 @@ function Player() {
         setError(leadersRes.error?.message || resultsRes.error?.message || 'שגיאה בטעינת השחקן')
       }
 
-      const leaders = leadersRes.data || []
+      const leaders = (leadersRes.data || []).filter(p => !isCoach(p))
       const found = leaders.find(x => x.id === id)
       setPlayer(found || null)
       setPlace(found ? leaders.findIndex(x => x.id === id) + 1 : null)
@@ -565,7 +567,8 @@ function Admin() {
 
 function AdminPanel() {
   const navigate = useNavigate()
-  const [tab, setTab] = useState('round')
+  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
+  useEffect(() => { try { sessionStorage.setItem('football-admin-tab', tab) } catch {} }, [tab])
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
   const [results, setResults] = useState([])
@@ -578,6 +581,7 @@ function AdminPanel() {
   const [roundDate, setRoundDate] = useState(new Date().toISOString().slice(0, 10))
   const [wins, setWins] = useState({})
   const [roundPoints, setRoundPoints] = useState(null)
+  const [isDraw, setIsDraw] = useState(false)
   const [winnerFile, setWinnerFile] = useState(null)
 
   const [newFirstName, setNewFirstName] = useState('')
@@ -603,7 +607,7 @@ function AdminPanel() {
 
     const err = pRes.error || rRes.error || resRes.error || ratingsRes.error
     if (err) setStatus(`שגיאה: ${err.message}`)
-    setPlayers(pRes.data || [])
+    setPlayers([...(pRes.data || [])].sort((a,b) => coachLast(a,b) || String(a.name).localeCompare(String(b.name),'he')))
     setRounds(rRes.data || [])
     setResults(resRes.data || [])
     setRatings(Object.fromEntries((ratingsRes.data || []).map(r => [r.player_id, r])))
@@ -613,7 +617,7 @@ function AdminPanel() {
   useEffect(() => { loadData() }, [])
   useEffect(() => { setRoundNumber(nextRound) }, [nextRound])
 
-  const activePlayers = players.filter(p => p.is_active)
+  const activePlayers = players.filter(p => p.is_active && !isCoach(p))
 
   async function uploadImage(bucket, file, prefix) {
     if (!file) return ''
@@ -639,7 +643,7 @@ function AdminPanel() {
       const number = Number(roundNumber)
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
 
-      const winnerPlayers = activePlayers.filter(p => Boolean(wins[p.id]))
+      const winnerPlayers = isDraw ? [] : activePlayers.filter(p => Boolean(wins[p.id]))
       if (winnerPlayers.length > 0 && !roundPoints) {
         throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
       }
@@ -657,8 +661,8 @@ function AdminPanel() {
       const roundPayload = {
         round_number: number,
         round_date: roundDate,
-        winner_caption: null,
-        winner_photo_url: winnerPhotoUrl,
+        winner_caption: isDraw ? 'תיקו בין הקבוצות ללא אלופי מחזור' : null,
+        winner_photo_url: isDraw ? null : winnerPhotoUrl,
       }
 
       let roundRow = existingRound
@@ -699,6 +703,7 @@ function AdminPanel() {
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
       setWins({})
       setRoundPoints(null)
+      setIsDraw(false)
       setWinnerFile(null)
       await loadData()
     } catch (err) {
@@ -713,6 +718,7 @@ function AdminPanel() {
     setRoundNumber(round.round_number)
     setRoundDate(round.round_date)
     setWinnerFile(null)
+    setIsDraw(round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור')
 
     const roundResults = results.filter(r => r.round_id === round.id && r.won)
     const winMap = {}
@@ -855,7 +861,7 @@ function AdminPanel() {
                 </div>
                 <span className="winner-count">נבחרו {Object.values(wins).filter(Boolean).length} מנצחים</span>
               </div>
-              {loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.length === 0 ? <div className="empty">הוסף שחקנים כדי להזין תוצאות.</div> : activePlayers.map(p => (
+              {isDraw ? <div className="empty">הוגדר תיקו — אין צורך לבחור מנצחים.</div> : loading ? <div className="empty">טוען שחקנים…</div> : activePlayers.length === 0 ? <div className="empty">הוסף שחקנים כדי להזין תוצאות.</div> : activePlayers.map(p => (
                 <button
                   type="button"
                   className={`winner-row ${wins[p.id] ? 'selected' : ''}`}
@@ -872,7 +878,7 @@ function AdminPanel() {
               ))}
             </div>
 
-            <div className="card round-points-panel">
+            {!isDraw && <div className="card round-points-panel">
               <div>
                 <span className="eyebrow">שלב 2</span>
                 <h2>כמה נקודות לתת לכל המנצחים?</h2>
@@ -893,9 +899,10 @@ function AdminPanel() {
                 ))}
               </div>
               <small className="points-hint">לחיצה נוספת על אותו ניקוד מבטלת את הבחירה.</small>
-            </div>
+            </div>}
+            <div className="card round-points-panel"><div><span className="eyebrow">שלב 3</span><h2>תיקו בין הקבוצות ללא אלופי מחזור</h2><p>אפשר לשמור מחזור ללא מנצחים וללא ניקוד.</p></div><button type="button" className={`secondary ${isDraw ? 'selected' : ''}`} aria-pressed={isDraw} onClick={() => { setIsDraw(v => !v); setWins({}); setRoundPoints(null) }}>{isDraw ? '✓ תיקו ללא אלופי מחזור — נבחר' : 'סמן תיקו ללא אלופי מחזור'}</button></div>
 
-            <div className="card weekly-upload">
+            {!isDraw && <div className="card weekly-upload">
               <div>
                 <span className="eyebrow">תמונת ניצחון שבועית</span>
                 <h2>זוכי מחזור {roundNumber || '—'}</h2>
@@ -904,7 +911,7 @@ function AdminPanel() {
               <div className="upload-fields">
                 <input type="file" accept="image/*" onChange={e => setWinnerFile(e.target.files?.[0] || null)} />
               </div>
-            </div>
+            </div>}
 
             <button className="primary big" disabled={busy} onClick={saveRound}>{busy ? 'שומר…' : 'שמור מחזור'}</button>
           </section>
@@ -929,7 +936,7 @@ function AdminPanel() {
               {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => {
                 const playerOverall = overallRating(ratings[p.id])
                 return (
-                <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
+                <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${isCoach(p) ? 'coach-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
                   {editingPlayerId === p.id ? (
                     <div className="player-edit-panel">
                       <div className="player-edit-head">
@@ -968,10 +975,10 @@ function AdminPanel() {
                     <>
                       <span className="player">
                         <img src={p.photo_url || avatarFallback(p.name)} alt="" />
-                        <span className="player-text"><b>{p.name}</b></span>
+                        <span className="player-text"><b>{p.name}</b>{isCoach(p) && <small>מאמן • משתתף בחלוקה לפי הצורך</small>}</span>
                       </span>
                       <span className={`player-rating-badge ${ratingLevelClass(playerOverall)}`}>{playerOverall ?? '—'}</span>
-                      <span>{p.is_active ? 'פעיל' : 'מוסתר'}</span>
+                      <span>{isCoach(p) ? 'מאמן' : p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
                         <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתונים</button>
                         <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
