@@ -634,8 +634,13 @@ function Admin() {
   return <AdminPanel />
 }
 
+const ROUND_DRAFT_KEY = 'football-round-draft-v1'
+const readRoundDraft = () => { try { return JSON.parse(localStorage.getItem(ROUND_DRAFT_KEY) || 'null') } catch { return null } }
 function AdminPanel() {
   const navigate = useNavigate()
+  const [initialRoundDraft] = useState(readRoundDraft)
+  const [roundDraftActive, setRoundDraftActive] = useState(Boolean(initialRoundDraft))
+  const [roundDraftSavedAt, setRoundDraftSavedAt] = useState(initialRoundDraft?.updatedAt || null)
   const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
   useEffect(() => { try { sessionStorage.setItem('football-admin-tab', tab) } catch {} }, [tab])
   const [players, setPlayers] = useState([])
@@ -646,12 +651,12 @@ function AdminPanel() {
   const [busy, setBusy] = useState(false)
 
   const nextRound = useMemo(() => (rounds.length ? Math.max(...rounds.map(r => r.round_number)) + 1 : 1), [rounds])
-  const [roundNumber, setRoundNumber] = useState(1)
-  const [roundDate, setRoundDate] = useState(new Date().toISOString().slice(0, 10))
-  const [wins, setWins] = useState({})
-  const [attended, setAttended] = useState({})
-  const [roundPoints, setRoundPoints] = useState(null)
-  const [isDraw, setIsDraw] = useState(false)
+  const [roundNumber, setRoundNumber] = useState(initialRoundDraft?.roundNumber ?? 1)
+  const [roundDate, setRoundDate] = useState(initialRoundDraft?.roundDate || new Date().toISOString().slice(0, 10))
+  const [wins, setWins] = useState(initialRoundDraft?.wins || {})
+  const [attended, setAttended] = useState(initialRoundDraft?.attended || {})
+  const [roundPoints, setRoundPoints] = useState(initialRoundDraft?.roundPoints ?? null)
+  const [isDraw, setIsDraw] = useState(initialRoundDraft?.isDraw || false)
   const [winnerFile, setWinnerFile] = useState(null)
 
   const [newFirstName, setNewFirstName] = useState('')
@@ -685,7 +690,28 @@ function AdminPanel() {
   }
 
   useEffect(() => { loadData() }, [])
-  useEffect(() => { setRoundNumber(nextRound) }, [nextRound])
+  useEffect(() => { if (!roundDraftActive) setRoundNumber(nextRound) }, [nextRound, roundDraftActive])
+
+  useEffect(() => {
+    if (!roundDraftActive) return
+    const updatedAt = Date.now()
+    try { localStorage.setItem(ROUND_DRAFT_KEY, JSON.stringify({ roundNumber, roundDate, wins, attended, roundPoints, isDraw, updatedAt })) } catch {}
+    setRoundDraftSavedAt(updatedAt)
+  }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw])
+
+  function startRoundDraft() { if (!roundDraftActive) setRoundDraftActive(true) }
+  function clearRoundDraft() {
+    try { localStorage.removeItem(ROUND_DRAFT_KEY) } catch {}
+    setRoundDraftActive(false)
+    setRoundDraftSavedAt(null)
+  }
+  function discardRoundDraft() {
+    clearRoundDraft()
+    setRoundNumber(nextRound)
+    setRoundDate(new Date().toISOString().slice(0,10))
+    setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setStatus('טיוטת המחזור נמחקה. אפשר להתחיל מחזור חדש.')
+  }
 
   const activePlayers = players.filter(p => p.is_active && !isCoach(p))
 
@@ -699,15 +725,18 @@ function AdminPanel() {
   }
 
   function toggleWinner(playerId) {
+    startRoundDraft()
     setWins(prev => ({ ...prev, [playerId]: !prev[playerId] }))
     setAttended(prev => ({ ...prev, [playerId]: true }))
   }
   function toggleAttendance(playerId) {
+    startRoundDraft()
     setAttended(prev => ({ ...prev, [playerId]: !prev[playerId] }))
     if (attended[playerId]) setWins(prev => ({ ...prev, [playerId]: false }))
   }
 
   function toggleRoundPoints(value) {
+    startRoundDraft()
     setRoundPoints(prev => prev === value ? null : value)
   }
 
@@ -781,6 +810,7 @@ function AdminPanel() {
         if (error) throw error
       }
 
+      clearRoundDraft()
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
       setWins({})
       setAttended({})
@@ -796,6 +826,8 @@ function AdminPanel() {
   }
 
   async function loadRoundForEditing(round) {
+    if (roundDraftActive && !window.confirm('יש טיוטת מחזור שלא נשמרה. לטעון מחזור אחר ולדרוס את הטיוטה?')) return
+    startRoundDraft()
     setTab('round')
     setRoundNumber(round.round_number)
     setRoundDate(round.round_date)
@@ -941,11 +973,12 @@ function AdminPanel() {
             <div className="section-title">
               <div><span className="eyebrow">ADMIN</span><h1>עדכון תוצאות מחזור</h1></div>
               <div className="round-fields">
-                <label>מחזור<input type="number" min="1" value={roundNumber} onChange={e => setRoundNumber(e.target.value)} /></label>
-                <label>תאריך<input type="date" value={roundDate} onChange={e => setRoundDate(e.target.value)} /></label>
+                <label>מחזור<input type="number" min="1" value={roundNumber} onChange={e => { startRoundDraft(); setRoundNumber(e.target.value) }} /></label>
+                <label>תאריך<input type="date" value={roundDate} onChange={e => { startRoundDraft(); setRoundDate(e.target.value) }} /></label>
               </div>
             </div>
 
+            {roundDraftActive && <div className="round-draft-banner" role="status"><span>💾 טיוטת מחזור {roundNumber} נשמרת אוטומטית במכשיר הזה. אפשר לעבור לוואטסאפ ולחזור בלי לאבד את הסימונים.</span><button type="button" onClick={() => { if (window.confirm("למחוק את הטיוטה ולהתחיל מחדש?")) discardRoundDraft() }}>מחק טיוטה</button></div>}
             <div className="card score-list winner-select-list">
               <div className="winner-list-intro">
                 <div><span className="eyebrow">נוכחות</span><h2>מי השתתף במחזור?</h2><p>מסמנים את כל המשתתפים, גם אם המחזור הסתיים בתיקו. שחקן שהשתתף ללא ניצחון מקבל 0 נקודות.</p></div>
@@ -1007,7 +1040,7 @@ function AdminPanel() {
               </div>
               <small className="points-hint">לחיצה נוספת על אותו ניקוד מבטלת את הבחירה.</small>
             </div>}
-            <div className="card round-points-panel"><div><span className="eyebrow">שלב 3</span><h2>תיקו בין הקבוצות ללא אלופי מחזור</h2><p>אפשר לשמור מחזור ללא מנצחים וללא ניקוד.</p></div><button type="button" className={`secondary ${isDraw ? 'selected' : ''}`} aria-pressed={isDraw} onClick={() => { setIsDraw(v => !v); setWins({}); setRoundPoints(null) }}>{isDraw ? '✓ תיקו ללא אלופי מחזור — נבחר' : 'סמן תיקו ללא אלופי מחזור'}</button></div>
+            <div className="card round-points-panel"><div><span className="eyebrow">שלב 3</span><h2>תיקו בין הקבוצות ללא אלופי מחזור</h2><p>אפשר לשמור מחזור ללא מנצחים וללא ניקוד.</p></div><button type="button" className={`secondary ${isDraw ? 'selected' : ''}`} aria-pressed={isDraw} onClick={() => { startRoundDraft(); setIsDraw(v => !v); setWins({}); setRoundPoints(null) }}>{isDraw ? '✓ תיקו ללא אלופי מחזור — נבחר' : 'סמן תיקו ללא אלופי מחזור'}</button></div>
 
             {!isDraw && <div className="card weekly-upload">
               <div>
