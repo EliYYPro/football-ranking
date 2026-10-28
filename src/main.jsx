@@ -644,6 +644,7 @@ function AdminPanel() {
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
 
       const winnerPlayers = isDraw ? [] : activePlayers.filter(p => Boolean(wins[p.id]))
+      if (!isDraw && !winnerPlayers.length) throw new Error('בחר מנצחים או סמן תיקו ללא אלופי מחזור.')
       if (winnerPlayers.length > 0 && !roundPoints) {
         throw new Error('בחר כמה נקודות לתת לכל המנצחים: 1, 2 או 3.')
       }
