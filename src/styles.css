@@ -1349,3 +1349,37 @@ footer{color:#617d93}
  .tb-mobile-attendance button{border:0;background:#179ce0;color:#03131f;border-radius:9px;padding:10px;font-weight:900}
  .tb-public-stats-head,.tb-public-stats-row{grid-template-columns:minmax(90px,1fr) 55px 100px;font-size:12px}
 }
+
+/* October UI polish: round stepper, roster filters, analytic KPI tiles */
+.tb-round-number-label{min-width:190px!important}
+.tb-round-stepper{display:grid;grid-template-columns:48px minmax(65px,1fr) 48px;direction:ltr;align-items:stretch;overflow:hidden;border-radius:14px;border:1px solid #376789;background:#071b2b;box-shadow:inset 0 1px 0 #ffffff12}
+.tb-round-stepper button{height:49px;border:0;background:#14344e;color:#9ad8ff;font-size:32px;font-weight:900;cursor:pointer;line-height:1;transition:background .15s,color .15s}
+.tb-round-stepper button:hover:not(:disabled){background:#1a679a;color:#fff}
+.tb-round-stepper button:focus-visible{outline:2px solid #7acbff;outline-offset:-3px}
+.tb-round-stepper button:disabled{opacity:.35;cursor:default}
+.tb-round-stepper span{display:grid;place-items:center;color:#f3fbff;font-size:25px;font-weight:900;font-variant-numeric:tabular-nums;border-inline:1px solid #28516c}
+.tb-attendance-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 20px;background:linear-gradient(90deg,#0d2436,#0b1b29);border-top:1px solid #244b64;border-bottom:1px solid #244b64}
+.tb-attendance-toolbar-title{color:#94b7ce;font-size:14px;font-weight:800;white-space:nowrap}
+.tb-attendance-filters{display:inline-flex;flex-wrap:nowrap;gap:5px;margin:0;padding:4px;background:#071723;border:1px solid #294b63;border-radius:13px}
+.tb-attendance-filters button{margin:0;border:1px solid transparent;border-radius:9px;min-width:83px;padding:9px 15px;font-size:14px;white-space:nowrap;background:transparent;color:#b1cee0}
+.tb-attendance-filters button.active{background:#14774b;border-color:#3fcb8c;color:#fff;box-shadow:0 3px 10px #0005}
+.analytics-kpis{gap:16px}
+.analytics-kpis .analytics-kpi{position:relative;overflow:hidden;min-height:166px;padding:22px 20px!important;border-radius:19px!important;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:9px;background:linear-gradient(150deg,#0d2132,#081622)!important;border:1px solid var(--kpi-border,#28506b)!important;box-shadow:inset 0 1px 0 #ffffff0c,0 10px 25px #0002}
+.analytics-kpis .analytics-kpi::before{content:'';position:absolute;right:0;top:0;bottom:0;width:5px;background:var(--kpi-accent,#51bbfa)}
+.analytics-kpis .analytics-kpi::after{content:'';position:absolute;left:-30px;bottom:-85px;width:175px;height:175px;border-radius:50%;background:var(--kpi-accent,#51bbfa);opacity:.065;pointer-events:none}
+.analytics-kpis .analytics-kpi .analytics-kpi-icon{font-size:22px;line-height:1;filter:saturate(.85);margin-bottom:6px}
+.analytics-kpis .analytics-kpi>span:not(.analytics-kpi-icon){color:#bdccdf!important;font-size:14px;font-weight:700}
+.analytics-kpis .analytics-kpi>b{color:var(--kpi-accent,#51bbfa)!important;font-size:43px!important;line-height:1.1;font-weight:900;font-variant-numeric:tabular-nums}
+.analytics-kpi-blue{--kpi-accent:#55bdff;--kpi-border:#23618d}
+.analytics-kpi-green{--kpi-accent:#55dc9c;--kpi-border:#226d57}
+.analytics-kpi-purple{--kpi-accent:#b29aff;--kpi-border:#594b8b}
+.analytics-kpi-amber{--kpi-accent:#ffd071;--kpi-border:#88673a}
+@media(max-width:720px){
+ .tb-attendance-toolbar{align-items:flex-start;flex-direction:column;padding:12px;gap:8px}
+ .tb-attendance-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+ .tb-attendance-filters button{min-width:0;padding:10px 5px}
+ .tb-round-number-label{min-width:0!important;width:100%}
+ .tb-round-stepper{width:100%}
+ .analytics-kpis .analytics-kpi{min-height:135px;padding:16px!important}
+ .analytics-kpis .analytics-kpi>b{font-size:34px!important}
+}
