@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from './supabase'
+import { readDraft as readSavedDraft, saveDraft, clearDraft, hasMeaningfulTeamDraft, formatDraftTime } from './adminDrafts'
 
 export function CoachAvatar() { return <span className="coach-avatar" role="img" aria-label="מאמן — משרוקית"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13H4a2 2 0 0 0-2 2v5h9"/><path d="M12 10h7l3 4a9 9 0 1 1-10-1z"/><circle cx="21" cy="21" r="3"/><circle cx="15" cy="9" r="2"/></svg></span> }
 
@@ -468,8 +469,8 @@ export function TeamHistoryPanel({ players = [] }) {
 }
 
 const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
-export const hasTeamDraft = () => { try { const d = JSON.parse(localStorage.getItem('football-team-draft') || '{}'); return Boolean(d.editingSessionId || (d.draftTeams && Object.keys(d.draftTeams).length) || (d.selectedIds && d.selectedIds.length)) } catch { return false } }
-const readDraft = () => { try { return JSON.parse(localStorage.getItem('football-team-draft') || '{}') } catch { return {} } }
+export const hasTeamDraft = () => hasMeaningfulTeamDraft(readSavedDraft('football-team-draft', {}))
+const readDraft = () => readSavedDraft('football-team-draft', {})
 export default function TeamBuilder({ players = [], rounds = [] }) {
   const [initialDraft] = useState(readDraft)
   const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
@@ -497,7 +498,8 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [message, setMessage] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(initialDraft.editingSessionId || null)
   useEffect(() => {
-    try { localStorage.setItem('football-team-draft', JSON.stringify({ selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })) } catch {}
+    if (hasMeaningfulTeamDraft({selectedIds, draftTeams, editingSessionId})) saveDraft('football-team-draft', { selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId })
+    else clearDraft('football-team-draft')
   }, [selectedIds, teamCount, selectedColorKeys, preferredSize, sessionDate, roundNumber, draftTeams, balanceScore, editingSessionId])
   function exitAllocation() {
     if (!window.confirm('לצאת מחלוקת הכוחות ולמחוק את כל הבחירות והשינויים שלא נשמרו? חלוקות שכבר אושרו יישארו ללא שינוי.')) return
@@ -517,7 +519,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setLockedColorKeys([])
     setShowConfirmation(false)
     setMessage('יצאת מחלוקת הכוחות. כל הבחירות שלא נשמרו אופסו.')
-    try { localStorage.removeItem('football-team-draft') } catch {}
+    clearDraft('football-team-draft')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
@@ -802,7 +804,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setShowConfirmation(false)
     setUndoStack([])
     setLockedColorKeys([])
-    try { localStorage.removeItem('football-team-draft') } catch {}
+    clearDraft('football-team-draft')
     await loadPrivateData()
     if (!wasEditing) setRoundNumber(number + 1)
   }
