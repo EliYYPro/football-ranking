@@ -111,7 +111,7 @@ function PublicArchive() {
     async function load() {
       setLoading(true)
       const [roundsRes, teamArchiveRes] = await Promise.all([
-        supabase.from('rounds').select('id, round_number, round_date, winner_photo_url').order('round_number', { ascending: false }),
+        supabase.from('rounds').select('id, round_number, round_date, winner_photo_url, winner_caption').order('round_number', { ascending: false }),
         supabase.from('public_team_archive').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }),
       ])
       const err = roundsRes.error || teamArchiveRes.error
