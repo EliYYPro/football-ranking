@@ -213,7 +213,7 @@ function PublicArchive() {
             {rounds.filter(r => r.winner_photo_url).length === 0 ? <div className="empty card">עדיין אין תמונות ניצחון בארכיון.</div> : rounds.filter(r => r.winner_photo_url).map(round => (
               <button type="button" className="archive-photo-card card" key={round.id} onClick={() => setLightbox({ url: round.winner_photo_url, alt: `זוכי מחזור ${round.round_number}` })}>
                 <img src={round.winner_photo_url} alt={`זוכי מחזור ${round.round_number}`} />
-                <span><b>מחזור {round.round_number}</b><small>{formatDate(round.round_date)}</small></span>
+                <span><b>{round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : `מחזור ${round.round_number}`}</b><small>מחזור {round.round_number} • {formatDate(round.round_date)}</small></span>
               </button>
             ))}
           </div>
@@ -365,8 +365,8 @@ function Home() {
             </button>
             <div className="winner-copy">
               <span className="eyebrow">🏆 זוכי השבוע</span>
-              <h2>מחזור {latestRound.round_number}</h2>
-              <p>לחץ על התמונה לצפייה בגודל מלא</p>
+              <h2>{latestRound.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : `מחזור ${latestRound.round_number}`}</h2>
+              <p>{latestRound.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? `מחזור ${latestRound.round_number} • ללא אלופי מחזור` : 'לחץ על התמונה לצפייה בגודל מלא'}</p>
               <small>{formatDate(latestRound.round_date)}</small>
             </div>
           </section>
@@ -456,8 +456,8 @@ function Home() {
                 <button type="button" className="mini-round card mini-round-button" key={r.id} disabled={!r.winner_photo_url} onClick={() => r.winner_photo_url && setLightbox({ url: r.winner_photo_url, alt: `זוכי מחזור ${r.round_number}` })}>
                   {r.winner_photo_url ? <img src={r.winner_photo_url} alt="" /> : <div className="mini-placeholder">🏆</div>}
                   <div>
-                    <b>מחזור {r.round_number}</b>
-                    <span>{formatDate(r.round_date)}</span>
+                    <b>{r.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : `מחזור ${r.round_number}`}</b>
+                    <span>מחזור {r.round_number} • {formatDate(r.round_date)}</span>
                   </div>
                 </button>
               ))}
@@ -769,7 +769,7 @@ function AdminPanel() {
         round_number: number,
         round_date: roundDate,
         winner_caption: isDraw ? 'תיקו בין הקבוצות ללא אלופי מחזור' : null,
-        winner_photo_url: isDraw ? null : winnerPhotoUrl,
+        winner_photo_url: winnerPhotoUrl,
       }
 
       let roundRow = existingRound
@@ -1042,16 +1042,16 @@ function AdminPanel() {
             </div>}
             <div className="card round-points-panel"><div><span className="eyebrow">שלב 3</span><h2>תיקו בין הקבוצות ללא אלופי מחזור</h2><p>אפשר לשמור מחזור ללא מנצחים וללא ניקוד.</p></div><button type="button" className={`secondary ${isDraw ? 'selected' : ''}`} aria-pressed={isDraw} onClick={() => { startRoundDraft(); setIsDraw(v => !v); setWins({}); setRoundPoints(null) }}>{isDraw ? '✓ תיקו ללא אלופי מחזור — נבחר' : 'סמן תיקו ללא אלופי מחזור'}</button></div>
 
-            {!isDraw && <div className="card weekly-upload">
+            <div className="card weekly-upload">
               <div>
-                <span className="eyebrow">תמונת ניצחון שבועית</span>
-                <h2>זוכי מחזור {roundNumber || '—'}</h2>
+                <span className="eyebrow">{isDraw ? 'תמונת תיקו בין הקבוצות' : 'תמונת ניצחון שבועית'}</span>
+                <h2>{isDraw ? 'תיקו בין הקבוצות' : `זוכי מחזור ${roundNumber || '—'}`}</h2>
                 <p>אפשר להעלות תמונה אחת שתופיע בעמוד הראשי ובארכיון הציבורי.</p>
               </div>
               <div className="upload-fields">
                 <input type="file" accept="image/*" onChange={e => setWinnerFile(e.target.files?.[0] || null)} />
               </div>
-            </div>}
+            </div>
 
             <button className="primary big" disabled={busy} onClick={saveRound}>{busy ? 'שומר…' : 'שמור מחזור'}</button>
           </section>
@@ -1162,6 +1162,7 @@ function AdminPanel() {
                         <div>
                           <span className="eyebrow">מחזור {r.round_number}</span>
                           <h3>{formatDate(r.round_date)}</h3>
+                          {r.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' && <strong className="draw-round-label">תיקו בין הקבוצות</strong>}
                           <p>{roundResults.length} שחקנים • {roundResults.reduce((sum, x) => sum + x.points, 0)} נקודות חולקו</p>
                         </div>
                         <button className="secondary" onClick={() => loadRoundForEditing(r)}>ערוך מחזור</button>
