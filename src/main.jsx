@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'reac
 import { supabase } from './supabase'
 import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar } from './TeamBuilder'
 import TeamAnalytics from './TeamAnalytics'
+import { readDraft as readSavedDraft, saveDraft, clearDraft, formatDraftTime } from './adminDrafts'
 import './styles.css'
 
 const avatarFallback = (name = 'Player') =>
@@ -635,7 +636,7 @@ function Admin() {
 }
 
 const ROUND_DRAFT_KEY = 'football-round-draft-v1'
-const readRoundDraft = () => { try { return JSON.parse(localStorage.getItem(ROUND_DRAFT_KEY) || 'null') } catch { return null } }
+const readRoundDraft = () => readSavedDraft(ROUND_DRAFT_KEY)
 function AdminPanel() {
   const navigate = useNavigate()
   const [initialRoundDraft] = useState(readRoundDraft)
@@ -699,13 +700,13 @@ function AdminPanel() {
   useEffect(() => {
     if (!roundDraftActive) return
     const updatedAt = Date.now()
-    try { localStorage.setItem(ROUND_DRAFT_KEY, JSON.stringify({ roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId, updatedAt })) } catch {}
+    saveDraft(ROUND_DRAFT_KEY, { roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId })
     setRoundDraftSavedAt(updatedAt)
   }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId])
 
   function startRoundDraft() { if (!roundDraftActive) setRoundDraftActive(true) }
   function clearRoundDraft() {
-    try { localStorage.removeItem(ROUND_DRAFT_KEY) } catch {}
+    clearDraft(ROUND_DRAFT_KEY)
     setRoundDraftActive(false)
     setRoundDraftSavedAt(null)
   }
@@ -717,7 +718,7 @@ function AdminPanel() {
     setEditingRoundId(null)
     setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
     setRoundDraftActive(false)
-    try { localStorage.removeItem(ROUND_DRAFT_KEY) } catch {}
+    clearDraft(ROUND_DRAFT_KEY)
   }
   function discardRoundDraft() {
     clearRoundDraft()
@@ -1023,7 +1024,7 @@ function AdminPanel() {
             </div>
 
             <div className="round-new-actions"><button type="button" className="secondary" onClick={() => { if (roundDraftActive && !window.confirm('להתחיל מחזור חדש? הטיוטה הנוכחית שלא נשמרה תימחק.')) return; discardRoundDraft(); setStatus('מחזור חדש מוכן לעדכון.') }}>＋ מחזור חדש ({nextRound})</button>{editingRoundId && <span>עורך מחזור קודם – ניתן לחזור למחזור הבא בלחיצה על ״מחזור חדש״</span>}</div>
-            {roundDraftActive && <div className="round-draft-banner" role="status"><span>💾 טיוטת מחזור {roundNumber} נשמרת אוטומטית במכשיר הזה. אפשר לעבור לוואטסאפ ולחזור בלי לאבד את הסימונים.</span><button type="button" onClick={() => { if (window.confirm("למחוק את הטיוטה ולהתחיל מחדש?")) discardRoundDraft() }}>מחק טיוטה</button></div>}
+            {roundDraftActive && <div className="round-draft-banner" role="status"><span>💾 טיוטת מחזור {roundNumber} נשמרת אוטומטית במכשיר הזה{roundDraftSavedAt ? ` • שמירה אחרונה ${formatDraftTime(roundDraftSavedAt)}` : ''}. אפשר לעבור לוואטסאפ ולחזור בלי לאבד את הסימונים.</span><button type="button" onClick={() => { if (window.confirm("למחוק את הטיוטה ולהתחיל מחדש?")) discardRoundDraft() }}>מחק טיוטה</button></div>}
             {allocationLoading ? <div className="card empty">טוען משתתפים מחלוקת הכוחות…</div> : allocationError ? <div className="notice error-box">{allocationError}</div> : allocationIds !== null ? <div className="card round-roster-notice">✓ רשימת המשתתפים נלקחת אוטומטית מחלוקת הכוחות המאושרת של מחזור {roundNumber}: <b>{roundParticipants.length} שחקנים</b>. אין צורך לסמן נוכחות שוב.</div> : <div className="card score-list winner-select-list">
               <div className="winner-list-intro">
                 <div><span className="eyebrow">נוכחות (ללא חלוקה שמורה)</span><h2>מי השתתף במחזור?</h2><p>מסמנים את כל המשתתפים, גם אם המחזור הסתיים בתיקו. שחקן שהשתתף ללא ניצחון מקבל 0 נקודות.</p></div>
