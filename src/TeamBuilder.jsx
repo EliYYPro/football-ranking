@@ -462,6 +462,7 @@ export function TeamHistoryPanel({ players = [] }) {
 }
 
 const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
+export const hasTeamDraft = () => { try { const d = JSON.parse(sessionStorage.getItem('football-team-draft') || '{}'); return Boolean(d.editingSessionId || (d.draftTeams && Object.keys(d.draftTeams).length) || (d.selectedIds && d.selectedIds.length)) } catch { return false } }
 const readDraft = () => { try { return JSON.parse(sessionStorage.getItem('football-team-draft') || '{}') } catch { return {} } }
 export default function TeamBuilder({ players = [], rounds = [] }) {
   const [initialDraft] = useState(readDraft)
@@ -552,6 +553,22 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setDraftTeams(null)
     setBalanceScore(null)
     setEditingSessionId(null)
+  }
+
+  function changeDraftTeamColor(oldKey, newKey) {
+    if (oldKey === newKey || !draftTeams) return
+    if (selectedColorKeys.includes(newKey)) {
+      setMessage('הצבע הזה כבר בשימוש בקבוצה אחרת. בחר צבע שאינו בשימוש.')
+      return
+    }
+    setDraftTeams(prev => {
+      if (!prev) return prev
+      const next = { ...prev, [newKey]: prev[oldKey] || [] }
+      delete next[oldKey]
+      return next
+    })
+    setSelectedColorKeys(prev => prev.map(key => key === oldKey ? newKey : key))
+    setMessage('צבע הקבוצה עודכן. הרכב השחקנים נשאר ללא שינוי.')
   }
 
   function toggleTeamColor(key) {
@@ -780,7 +797,6 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
       </div>
 
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
-      {editingSessionId && <button type="button" className="secondary tb-cancel-edit" onClick={cancelEdit}>✕ בטל עריכת חלוקה שמורה</button>}
 
       <div className="card tb-round-setup">
         <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>מספר המחזור הבא נשמר לפי ההיסטוריה ולא חוזר אחורה.</p></div>
@@ -851,7 +867,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         <div>
           <span className="eyebrow">שלב 5</span>
           <h2>בחירת צבעי חולצות</h2>
-          <p>בחר בדיוק {teamCount} צבעים מתוך ארבעת צבעי המדים.</p>
+          <p>בחר בדיוק {teamCount} צבעים מתוך חמשת צבעי המדים.</p>
         </div>
         <div className="tb-color-buttons">
           {TEAM_COLORS.map(team => {
@@ -886,7 +902,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
               const avg = teamPlayers.length ? Math.round(average(teamPlayers.map(p => p.overall)) * 10) / 10 : 0
               return (
                 <div className={`tb-team-card team-${team.key}`} key={team.key} onDragOver={e => e.preventDefault()} onDrop={e => handleDrop(e, team.key)}>
-                  <div className="tb-team-head"><span>{team.name}</span><b>{avg || '—'}</b></div>
+                  <div className="tb-team-head"><label className="tb-team-color-label"><span className="sr-only">צבע הקבוצה</span><select aria-label="שינוי צבע הקבוצה" value={team.key} onChange={e => changeDraftTeamColor(team.key, e.target.value)}>{TEAM_COLORS.map(option => <option key={option.key} value={option.key} disabled={option.key !== team.key && selectedColorKeys.includes(option.key)}>{option.name}</option>)}</select></label><b>{avg || '—'}</b></div>
                   <div className="tb-team-players">
                     {teamPlayers.map(player => (
                       <div className="tb-team-player" draggable onDragStart={e => e.dataTransfer.setData('text/player-id', player.id)} key={player.id}>
@@ -906,13 +922,13 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           </div>
 
           <div className="tb-results-actions">
+            {editingSessionId && <button type="button" className="secondary" disabled={saving} onClick={cancelEdit}>ביטול עריכה</button>}
             <button type="button" className="secondary" disabled={generating} onClick={generate}>{generating ? 'מחשב…' : '↻ צור חלוקה אחרת'}</button>
             <button type="button" className="primary compact" disabled={saving} onClick={confirmTeams}>{saving ? 'שומר…' : editingSessionId ? '✓ שמירת השינויים' : '✓ אישור ושמירת החלוקה'}</button>
           </div>
         </div>
       )}
 
-      {editingSessionId && <button type="button" className="secondary tb-cancel-edit" onClick={cancelEdit}>ביטול עריכת חלוקה שמורה</button>}
       <div className="card tb-history">
         <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות ממחזורים קודמים</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
         {!sessions.length ? <div className="empty">עדיין לא נשמרה חלוקת כוחות.</div> : (
