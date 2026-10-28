@@ -10,6 +10,7 @@ export const TEAM_COLORS = [
   { key: 'cyan', name: 'תכלת' },
   { key: 'white', name: 'לבן' },
   { key: 'yellow', name: 'צהוב' },
+  { key: 'green', name: 'ירוק' },
 ]
 
 export const RATING_FIELDS = [
@@ -205,7 +206,7 @@ function evaluateTeams(teams, pairCounts, mode = 'balanced') {
 }
 
 function capacitiesFor(count, teamCount) {
-  const safeTeamCount = Math.max(2, Math.min(4, Number(teamCount) || 4))
+  const safeTeamCount = Math.max(2, Math.min(6, Number(teamCount) || 4))
   const base = Math.floor(count / safeTeamCount)
   const remainder = count % safeTeamCount
   return Array.from({ length: safeTeamCount }, (_, i) => base + (i < remainder ? 1 : 0))
@@ -594,6 +595,9 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setDraftTeams(null)
     setBalanceScore(null)
     setEditingSessionId(null)
+    setLockedColorKeys([])
+    setUndoStack([])
+    setShowConfirmation(false)
   }
 
   function changeDraftTeamColor(oldKey, newKey) {
@@ -900,7 +904,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
           <span className="eyebrow">שלב 3</span>
           <h2>כמות קבוצות</h2>
           <div className="tb-size-buttons tb-team-count-buttons">
-            {[2, 3, 4].map(count => <button type="button" className={teamCount === count ? 'selected' : ''} key={count} onClick={() => changeTeamCount(count)}>{count}</button>)}
+            {[2, 3, 4, 5, 6].map(count => <button type="button" className={teamCount === count ? 'selected' : ''} key={count} onClick={() => changeTeamCount(count)}>{count}</button>)}
           </div>
         </div>
         <div className="tb-selection-summary">
@@ -931,7 +935,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
         <div>
           <span className="eyebrow">שלב 5</span>
           <h2>בחירת צבעי חולצות</h2>
-          <p>בחר בדיוק {teamCount} צבעים מתוך חמשת צבעי המדים.</p>
+          <p>בחר בדיוק {teamCount} צבעים מתוך ששת צבעי המדים.</p>
         </div>
         <div className="tb-color-buttons">
           {TEAM_COLORS.map(team => {
