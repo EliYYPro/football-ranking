@@ -706,6 +706,16 @@ function AdminPanel() {
     setRoundDraftActive(false)
     setRoundDraftSavedAt(null)
   }
+  function switchRoundNumber(next) {
+    const number = Math.max(1, Number(next) || 1)
+    if (number === Number(roundNumber)) return
+    if (roundDraftActive && !window.confirm('מעבר למחזור אחר יאפס את בחירת המשתתפים והמנצחים בטיוטה. להמשיך?')) return
+    setRoundNumber(number)
+    setEditingRoundId(null)
+    setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setRoundDraftActive(false)
+    try { localStorage.removeItem(ROUND_DRAFT_KEY) } catch {}
+  }
   function discardRoundDraft() {
     clearRoundDraft()
     setEditingRoundId(null)
@@ -977,7 +987,7 @@ function AdminPanel() {
             <div className="section-title">
               <div><span className="eyebrow">ADMIN</span><h1>עדכון תוצאות מחזור</h1></div>
               <div className="round-fields">
-                <label className="round-stepper-field">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => { startRoundDraft(); setRoundNumber(n => Math.max(1, (Number(n) || 1) - 1)) }}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => { startRoundDraft(); setRoundNumber(n => (Number(n) || 0) + 1) }}>›</button></div></label>
+                <label className="round-stepper-field">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => switchRoundNumber((Number(roundNumber) || 1) - 1)}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => switchRoundNumber((Number(roundNumber) || 0) + 1)}>›</button></div></label>
                 <label>תאריך<input type="date" value={roundDate} onChange={e => { startRoundDraft(); setRoundDate(e.target.value) }} /></label>
               </div>
             </div>
