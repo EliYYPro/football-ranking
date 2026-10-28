@@ -1326,3 +1326,26 @@ footer{color:#617d93}
 .tb-team-player .coach-avatar,.tb-player-row .coach-avatar{width:44px;height:44px}
 .tb-results-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* Selected players: high contrast and unambiguous */
+.winner-row.selected,.tb-player-row.selected{background:#12472e!important;border:1px solid #39d58d!important;box-shadow:inset 3px 0 0 #56efa1!important}
+.winner-row.selected:hover,.tb-player-row.selected:hover{background:#155839!important}
+.winner-row.selected b,.tb-player-row.selected b{color:#effff4!important}
+.winner-row.selected .winner-check,.tb-player-row.selected .tb-selection-order{background:#38d989!important;color:#072516!important}
+.tb-filter-buttons{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.tb-filter-buttons button{border:1px solid #31536d;border-radius:10px;background:#0b1b2b;color:#c2d9e9;padding:9px 12px;font-weight:800;cursor:pointer}
+.tb-filter-buttons button.active{background:#145b3b;border-color:#55d497;color:#eafff2}
+.tb-mode-selector{padding:16px 20px;margin:14px 0}
+.tb-lock-button{border:1px solid currentColor;border-radius:8px;background:#0002;color:inherit;cursor:pointer;padding:5px 8px;font-size:12px}
+.tb-confirm-summary{padding:20px;margin-top:15px;border:1px solid #4e9bd0}
+.tb-confirm-summary button{margin-inline-end:9px}
+.tb-mobile-attendance{display:none}
+.tb-public-stats{padding:20px}
+.tb-public-stats-head,.tb-public-stats-row{display:grid;grid-template-columns:minmax(100px,1fr) 80px 130px;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #21445a}
+.tb-public-stats-head{color:#88abc5;font-size:12px}
+.tb-share-teams{margin:0 0 12px}
+@media(max-width:720px){
+ .tb-mobile-attendance{display:flex;position:sticky;bottom:8px;z-index:15;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;background:#0c2c42f2;border:1px solid #3e7391;border-radius:12px;box-shadow:0 7px 26px #0008;color:#fff}
+ .tb-mobile-attendance button{border:0;background:#179ce0;color:#03131f;border-radius:9px;padding:10px;font-weight:900}
+ .tb-public-stats-head,.tb-public-stats-row{grid-template-columns:minmax(90px,1fr) 55px 100px;font-size:12px}
+}
