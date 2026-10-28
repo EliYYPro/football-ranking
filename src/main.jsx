@@ -164,7 +164,7 @@ function PublicArchive() {
     ctx.fillText('ותיקי רמת אפעל | חלוקת קבוצות',1020,67)
     ctx.fillStyle = '#8cc7f2'; ctx.font = '26px Arial'
     ctx.fillText('מחזור ' + (session.round_number || '') + ' • ' + formatDate(session.session_date),1020,114)
-    const fills = { pink:'#fa419f',blue:'#1288d0',cyan:'#59d8ec',white:'#ecf3f8',yellow:'#f9d748' }
+    const fills = { pink:'#fa419f',blue:'#1288d0',cyan:'#59d8ec',white:'#ecf3f8',yellow:'#f9d748',green:'#3dc780' }
     colors.forEach((team,i) => {
       const x = i % 2 === 0 ? 560 : 24
       const y = cardTop + Math.floor(i/2) * (cardHeight + gap)
