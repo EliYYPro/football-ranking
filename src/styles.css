@@ -1412,3 +1412,6 @@ footer{color:#617d93}
 .round-new-actions button:hover{background:#17608c}
 .round-new-actions span{color:#9cb7ca;font-size:13px}
 @media(max-width:720px){.round-fields .round-stepper-field{width:100%;min-width:0}.round-fields .tb-round-stepper{min-width:0}.round-new-actions button{width:100%}}
+
+.round-roster-notice{margin:0 0 18px;padding:18px 22px;color:#c6f3df;background:#0b3027;border:1px solid #257c58;border-radius:13px;line-height:1.8}
+.round-roster-notice b{color:#75ecaa}
