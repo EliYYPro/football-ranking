@@ -187,10 +187,10 @@ export default function TeamAnalytics({ players = [] }) {
       {error && <div className="notice error-box">{error}</div>}
 
       <div className="analytics-kpis">
-        <div className="card analytics-kpi"><span>חלוקות מאושרות</span><b>{filteredSessions.length}</b></div>
-        <div className="card analytics-kpi"><span>שחקנים שהשתתפו</span><b>{activePlayerCount}</b></div>
-        <div className="card analytics-kpi"><span>ממוצע שחקנים למחזור</span><b>{averagePlayers}</b></div>
-        <div className="card analytics-kpi"><span>צמדים ששיחקו יחד</span><b>{analytics.pairs.length}</b></div>
+        <div className="card analytics-kpi analytics-kpi-blue"><span className="analytics-kpi-icon" aria-hidden="true">⚽</span><span>חלוקות מאושרות</span><b>{filteredSessions.length}</b></div>
+        <div className="card analytics-kpi analytics-kpi-green"><span className="analytics-kpi-icon" aria-hidden="true">👥</span><span>שחקנים שהשתתפו</span><b>{activePlayerCount}</b></div>
+        <div className="card analytics-kpi analytics-kpi-purple"><span className="analytics-kpi-icon" aria-hidden="true">📊</span><span>ממוצע שחקנים למחזור</span><b>{averagePlayers}</b></div>
+        <div className="card analytics-kpi analytics-kpi-amber"><span className="analytics-kpi-icon" aria-hidden="true">🤝</span><span>צמדים ששיחקו יחד</span><b>{analytics.pairs.length}</b></div>
       </div>
 
       <div className="analytics-grid">
