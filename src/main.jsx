@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
 import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar } from './TeamBuilder'
 import TeamAnalytics from './TeamAnalytics'
@@ -75,11 +75,11 @@ function Shell({ children }) {
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand"><LeagueLogo /></Link>
-        <nav className="topbar-actions">
-          <Link to="/" className="home-link">ראשי</Link>
-          <Link to="/archive" className="archive-link">ארכיון</Link>
-          <Link to="/statistics" className="archive-link stats-nav-link">📊 נתונים וסטטיסטיקות</Link>
-          <Link to="/admin" className="admin-link">Admin</Link>
+        <nav className="topbar-actions" aria-label="ניווט ראשי">
+          <NavLink end to="/" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ראשי</NavLink>
+          <NavLink to="/archive" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ארכיון</NavLink>
+          <NavLink to="/statistics" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>נתונים וסטטיסטיקות</NavLink>
+          <NavLink to="/admin" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ניהול</NavLink>
         </nav>
       </header>
       {children}
@@ -365,7 +365,7 @@ function Home() {
         </section>
 
         {latestRound && (
-          <section className="card" aria-label="סיכום המחזור האחרון">
+          <section className="card latest-round-summary" aria-label="סיכום המחזור האחרון">
             <div className="section-header-public">
               <div><span className="eyebrow">סיכום המחזור האחרון</span><h2>מחזור {latestRound.round_number} • {formatDate(latestRound.round_date)}</h2></div>
             </div>
