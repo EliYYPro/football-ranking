@@ -303,6 +303,7 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 
 export function RatingEditor({ player, initialRating, onClose, onSaved = () => {}, readOnly = false }) {
   const [form, setForm] = useState({ ...emptyRating, ...(initialRating || {}) })
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [message, setMessage] = useState('')
   const overall = overallRating(form)
 
@@ -719,9 +720,19 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     if (activeTeamDefs.some(team => !draftTeams[team.key]?.length)) return 'אחת הקבוצות ריקה.'
     return ''
   }
+  function reportSaveError(error, prefix = 'שמירת החלוקה נכשלה') {
+    const text = typeof error === 'string' ? error : (error?.message || 'שגיאה לא ידועה')
+    const hint = error?.code === '23514' ? ' ייתכן שמסד הנתונים עדיין מגביל את מספר הקבוצות או את צבעי החולצות.' : error?.code === '42501' ? ' בדוק את הרשאות מנהל המערכת.' : ''
+    const message = `${prefix}: ${text}${hint}`
+    setSaveError(message)
+    setMessage(`שגיאה: ${message}`)
+    setSaving(false)
+  }
+
   async function confirmTeams() {
+    setSaveError('')
     const validation = validateTeams()
-    if (validation) { setMessage(`שגיאה: ${validation}`); setShowConfirmation(false); return }
+    if (validation) { reportSaveError(validation, 'יש לתקן את החלוקה לפני השמירה'); setShowConfirmation(false); return }
     if (!showConfirmation) { setShowConfirmation(true); return }
     if (!draftTeams) return
     setSaving(true)
@@ -741,11 +752,24 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
     let duplicateQuery = supabase.from('training_sessions').select('id').eq('round_number', number)
     if (editingSessionId) duplicateQuery = duplicateQuery.neq('id', editingSessionId)
-    const { data: duplicate } = await duplicateQuery.maybeSingle()
+    const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle()
+    if (duplicateError) { reportSaveError(duplicateError, 'בדיקת המחזור נכשלה'); return }
+    let recoverSessionId = null
     if (duplicate) {
-      setSaving(false)
-      setMessage(`שגיאה: כבר נשמרה חלוקת כוחות למחזור ${number}.`)
-      return
+      // A previous failure may have saved the session but failed before saving any players.
+      // Recover only truly empty sessions; never overwrite a completed allocation.
+      if (editingSessionId) {
+        reportSaveError(`כבר קיימת חלוקה אחרת למחזור ${number}. בחר מספר מחזור אחר.`)
+        return
+      }
+      const { count, error: checkError } = await supabase.from('training_assignments')
+        .select('id', { count: 'exact', head: true }).eq('session_id', duplicate.id)
+      if (checkError) { reportSaveError(checkError, 'בדיקת החלוקה הקודמת נכשלה'); return }
+      if (count > 0) {
+        reportSaveError(`קיימת חלוקה שמורה למחזור ${number}. כדי לשנות אותה, פתח אותה מהארכיון באמצעות ״ערוך״.`)
+        return
+      }
+      recoverSessionId = duplicate.id
     }
 
     const sessionPayload = {
@@ -760,27 +784,29 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     }
 
     let session = null
+    let oldRows = []
     if (editingSessionId) {
-      const { data, error } = await supabase.from('training_sessions').update(sessionPayload).eq('id', editingSessionId).select().single()
-      if (error) {
-        setSaving(false)
-        setMessage(`שגיאה: ${error.message}`)
-        return
-      }
+      const previous = await supabase.from('training_assignments')
+        .select('player_id,team_color,team_position').eq('session_id', editingSessionId)
+      if (previous.error) { reportSaveError(previous.error, 'קריאת החלוקה הקיימת נכשלה'); return }
+      oldRows = previous.data || []
+    }
+
+    if (editingSessionId || recoverSessionId) {
+      const sessionId = editingSessionId || recoverSessionId
+      const { data, error } = await supabase.from('training_sessions')
+        .update(sessionPayload).eq('id', sessionId).select().single()
+      if (error) { reportSaveError(error); return }
       session = data
-      const { error: deleteAssignmentsError } = await supabase.from('training_assignments').delete().eq('session_id', editingSessionId)
-      if (deleteAssignmentsError) {
-        setSaving(false)
-        setMessage(`שגיאה: ${deleteAssignmentsError.message}`)
-        return
+      if (editingSessionId) {
+        const { error: deleteAssignmentsError } = await supabase.from('training_assignments')
+          .delete().eq('session_id', editingSessionId)
+        if (deleteAssignmentsError) { reportSaveError(deleteAssignmentsError); return }
       }
     } else {
-      const { data, error } = await supabase.from('training_sessions').insert(sessionPayload).select().single()
-      if (error) {
-        setSaving(false)
-        setMessage(`שגיאה: ${error.message}`)
-        return
-      }
+      const { data, error } = await supabase.from('training_sessions')
+        .insert(sessionPayload).select().single()
+      if (error) { reportSaveError(error); return }
       session = data
     }
 
@@ -793,12 +819,32 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
 
     const { error: assignmentError } = await supabase.from('training_assignments').insert(rows)
     if (assignmentError) {
-      setSaving(false)
-      setMessage(`שגיאה: ${assignmentError.message}`)
+      if (editingSessionId && oldRows.length) {
+        const restored = await supabase.from('training_assignments')
+          .insert(oldRows.map(row => ({ ...row, session_id: session.id })))
+        reportSaveError(assignmentError, restored.error
+          ? 'שמירת השחקנים נכשלה, וגם שחזור החלוקה הישנה נכשל. אל תמחק את הטיוטה'
+          : 'שמירת השחקנים נכשלה והחלוקה הישנה שוחזרה')
+      } else {
+        if (!editingSessionId && !recoverSessionId) {
+          const cleanup = await supabase.from('training_sessions').delete().eq('id', session.id)
+          reportSaveError(assignmentError, cleanup.error
+            ? 'שמירת השחקנים נכשלה; נשאר מחזור חלקי שניתן לתקן בניסיון הבא'
+            : 'שמירת השחקנים נכשלה. הטיוטה נשמרה לניסיון נוסף')
+        } else reportSaveError(assignmentError, 'שמירת השחקנים נכשלה. הטיוטה נשמרה לניסיון נוסף')
+      }
+      return
+    }
+
+    const verification = await supabase.from('training_assignments')
+      .select('id', { count: 'exact', head: true }).eq('session_id', session.id)
+    if (verification.error || verification.count !== rows.length) {
+      reportSaveError(verification.error || `נמצאו ${verification.count ?? 0} שיבוצים במקום ${rows.length}. הטיוטה נשמרה, בדוק את הארכיון לפני ניסיון חוזר.`, 'לא ניתן לאמת שמירה מלאה')
       return
     }
 
     const wasEditing = Boolean(editingSessionId)
+    setSaveError('')
     setMessage(wasEditing ? `חלוקת מחזור ${number} עודכנה בהצלחה ✅` : `חלוקת מחזור ${number} אושרה ונשמרה בהיסטוריה ✅`)
     setSaving(false)
     setDraftTeams(null)
@@ -990,6 +1036,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
             })}
           </div>
 
+          {saveError && <div className="tb-save-error" role="alert"><strong>לא ניתן היה לשמור את החלוקה</strong><p>{saveError}</p><small>השחקנים שסידרת עדיין בטיוטה. אל תלחץ על ״יציאה מחלוקה״.</small></div>}
           <div className="tb-results-actions">
             <button type="button" className="secondary" disabled={!undoStack.length} onClick={undoLast}>↶ בטל פעולה אחרונה</button>
             {editingSessionId && <button type="button" className="secondary" disabled={saving} onClick={cancelEdit}>ביטול עריכה</button>}
