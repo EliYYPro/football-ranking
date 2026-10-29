@@ -303,7 +303,6 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 
 export function RatingEditor({ player, initialRating, onClose, onSaved = () => {}, readOnly = false }) {
   const [form, setForm] = useState({ ...emptyRating, ...(initialRating || {}) })
   const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
   const [message, setMessage] = useState('')
   const overall = overallRating(form)
 
@@ -496,6 +495,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
   const [viewRatingPlayer, setViewRatingPlayer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [generating, setGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const [editingSessionId, setEditingSessionId] = useState(initialDraft.editingSessionId || null)
