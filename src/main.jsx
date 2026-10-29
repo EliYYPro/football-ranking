@@ -750,10 +750,13 @@ function AdminPanel() {
     let cancelled = false
     async function getAttendance() {
       setAllocationLoading(true); setAllocationIds(null); setAllocationError('')
-      const { data: session, error } = await supabase.from('training_sessions').select('id').eq('round_number', Number(roundNumber)).eq('status', 'confirmed').maybeSingle()
+      const { data: session, error } = await supabase.from('training_sessions').select('id, session_date').eq('round_number', Number(roundNumber)).eq('status', 'confirmed').maybeSingle()
       if (cancelled) return
       if (error) { setAllocationError('לא ניתן לבדוק את חלוקת הכוחות: ' + error.message); setAllocationLoading(false); return }
       if (!session) { setAllocationLoading(false); return }
+      // In a new, unsaved round, use the date of the approved team allocation.
+      // Never overwrite a manually edited date or an existing round draft.
+      if (!roundDraftActive && !editingRoundId && session.session_date) setRoundDate(session.session_date)
       const response = await supabase.from('training_assignments').select('player_id').eq('session_id', session.id)
       if (cancelled) return
       if (response.error) setAllocationError('לא ניתן לטעון משתתפים: ' + response.error.message)
