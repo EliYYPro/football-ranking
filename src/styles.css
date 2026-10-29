@@ -1516,3 +1516,9 @@ footer{color:#617d93}
  .tb-team-count-buttons button{min-width:0;width:auto;flex:1;padding:0 3px}
  .analytics-colors-wide{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Inline, visible save failures without hiding or destroying the active draft */
+.tb-save-error{margin:18px 0 12px;padding:16px 18px;border:1px solid #d95465;border-radius:13px;background:#421b26;color:#ffe4e6;line-height:1.6}
+.tb-save-error strong{display:block;font-size:16px}
+.tb-save-error p{margin:6px 0 8px;overflow-wrap:anywhere}
+.tb-save-error small{color:#ffbabe}
