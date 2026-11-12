@@ -90,6 +90,12 @@ function Shell({ children }) {
 
 
 function PhotoLightbox({ url, alt = '', onClose }) {
+  useEffect(() => {
+    if (!url) return
+    const onKey = event => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [url, onClose])
   if (!url) return null
   return (
     <div className="photo-lightbox" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -674,7 +680,8 @@ function AdminPanel() {
   const [roundDraftActive, setRoundDraftActive] = useState(Boolean(initialRoundDraft))
   const [roundDraftSavedAt, setRoundDraftSavedAt] = useState(initialRoundDraft?.updatedAt || null)
   const [editingRoundId, setEditingRoundId] = useState(initialRoundDraft?.editingRoundId || null)
-  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
+  const teamEditSessionId = new URLSearchParams(window.location.search).get('editTeamSession')
+  const [tab, setTab] = useState(() => { if (teamEditSessionId) return 'teams'; try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
   useEffect(() => { try { sessionStorage.setItem('football-admin-tab', tab) } catch {} }, [tab])
   const [players, setPlayers] = useState([])
   const [rounds, setRounds] = useState([])
@@ -691,6 +698,12 @@ function AdminPanel() {
   const [roundPoints, setRoundPoints] = useState(initialRoundDraft?.roundPoints ?? null)
   const [isDraw, setIsDraw] = useState(initialRoundDraft?.isDraw || false)
   const [winnerFile, setWinnerFile] = useState(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
+  const [winnerPhotoPosition, setWinnerPhotoPosition] = useState(initialRoundDraft?.winnerPhotoPosition ?? 16)
+  const [photoFocusReady, setPhotoFocusReady] = useState(false)
+  const [redCards, setRedCards] = useState(initialRoundDraft?.redCards || {})
+  const [redCardFeatureReady, setRedCardFeatureReady] = useState(false)
+  const [adminPhotoLightbox, setAdminPhotoLightbox] = useState(null)
   const [allocationIds, setAllocationIds] = useState(null)
   const [allocationLoading, setAllocationLoading] = useState(false)
   const [allocationError, setAllocationError] = useState('')
@@ -706,6 +719,40 @@ function AdminPanel() {
   const [ratings, setRatings] = useState({})
   const [ratingPlayer, setRatingPlayer] = useState(null)
   const [historyMode, setHistoryMode] = useState('photos')
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      supabase.from('results').select('red_card').limit(1),
+      supabase.from('rounds').select('winner_photo_position').limit(1),
+    ]).then(([redRes, focusRes]) => {
+      if (cancelled) return
+      setRedCardFeatureReady(!redRes.error)
+      setPhotoFocusReady(!focusRes.error)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!winnerFile) { setPhotoPreviewUrl(''); return }
+    const previewUrl = URL.createObjectURL(winnerFile)
+    setPhotoPreviewUrl(previewUrl)
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [winnerFile])
+
+  async function savePhotoFocus() {
+    const existing = rounds.find(r => Number(r.round_number) === Number(roundNumber))
+    if (!existing?.winner_photo_url || !photoFocusReady) return
+    setBusy(true)
+    const { error } = await supabase.from('rounds')
+      .update({winner_photo_position: Number(winnerPhotoPosition)}).eq('id', existing.id)
+    if (error) setStatus('שגיאה בשמירת מיקום התמונה: ' + error.message)
+    else {
+      setRounds(prev => prev.map(r => r.id === existing.id ? {...r, winner_photo_position: Number(winnerPhotoPosition)} : r))
+      setStatus('מיקום התמונה נשמר במחזור ' + roundNumber + ' ✓')
+    }
+    setBusy(false)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -731,9 +778,9 @@ function AdminPanel() {
   useEffect(() => {
     if (!roundDraftActive) return
     const updatedAt = Date.now()
-    saveDraft(ROUND_DRAFT_KEY, { roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId })
+    saveDraft(ROUND_DRAFT_KEY, { roundNumber, roundDate, wins, attended, roundPoints, isDraw, redCards, winnerPhotoPosition, editingRoundId })
     setRoundDraftSavedAt(updatedAt)
-  }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw, editingRoundId])
+  }, [roundDraftActive, roundNumber, roundDate, wins, attended, roundPoints, isDraw, redCards, winnerPhotoPosition, editingRoundId])
 
   function startRoundDraft() { if (!roundDraftActive) setRoundDraftActive(true) }
   function clearRoundDraft() {
@@ -747,7 +794,8 @@ function AdminPanel() {
     if (roundDraftActive && !window.confirm('מעבר למחזור אחר יאפס את בחירת המשתתפים והמנצחים בטיוטה. להמשיך?')) return
     setRoundNumber(number)
     setEditingRoundId(null)
-    setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setWins({}); setAttended({}); setRedCards({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setWinnerPhotoPosition(rounds.find(r => Number(r.round_number) === number)?.winner_photo_position ?? 16)
     setRoundDraftActive(false)
     clearDraft(ROUND_DRAFT_KEY)
   }
@@ -756,7 +804,8 @@ function AdminPanel() {
     setEditingRoundId(null)
     setRoundNumber(nextRound)
     setRoundDate(new Date().toISOString().slice(0,10))
-    setWins({}); setAttended({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setWins({}); setAttended({}); setRedCards({}); setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+    setWinnerPhotoPosition(16)
     setStatus('טיוטת המחזור נמחקה. אפשר להתחיל מחזור חדש.')
   }
 
@@ -803,6 +852,11 @@ function AdminPanel() {
     if (attended[playerId]) setWins(prev => ({ ...prev, [playerId]: false }))
   }
 
+  function toggleRedCard(playerId) {
+    startRoundDraft()
+    setRedCards(prev => ({ ...prev, [playerId]: !prev[playerId] }))
+  }
+
   function toggleRoundPoints(value) {
     startRoundDraft()
     setRoundPoints(prev => prev === value ? null : value)
@@ -825,6 +879,7 @@ function AdminPanel() {
       }
       const attendancePlayers = activePlayers.filter(p => participantIds ? participantIds.has(p.id) : Boolean(attended[p.id] || wins[p.id]))
       const winnerPlayers = isDraw ? [] : attendancePlayers.filter(p => Boolean(wins[p.id]))
+      if (!redCardFeatureReady && Object.values(redCards).some(Boolean)) throw new Error('יש לעדכן את בסיס הנתונים לפני שמירת כרטיסים אדומים.')
       if (!attendancePlayers.length) throw new Error(participantIds ? 'לא נמצאו שחקנים בחלוקת הכוחות המאושרת של המחזור.' : 'בחר לפחות שחקן אחד שהשתתף במחזור.')
       if (!isDraw && activePlayers.some(p => wins[p.id] && !attendancePlayers.some(a => a.id === p.id))) throw new Error('סומנו מנצחים שאינם רשומים כמשתתפים בחלוקת הכוחות. בטל את הסימון שלהם.')
       if (!isDraw && !winnerPlayers.length) throw new Error('בחר מנצחים או סמן תיקו ללא אלופי מחזור.')
@@ -847,6 +902,7 @@ function AdminPanel() {
         round_date: roundDate,
         winner_caption: isDraw ? 'תיקו בין הקבוצות ללא אלופי מחזור' : null,
         winner_photo_url: winnerPhotoUrl,
+        ...(photoFocusReady ? {winner_photo_position: Number(winnerPhotoPosition)} : {}),
       }
 
       let roundRow = existingRound
@@ -867,6 +923,7 @@ function AdminPanel() {
         points: winnerIds.has(p.id) ? Number(roundPoints) : 0,
         won: winnerIds.has(p.id),
         opponent_team: null,
+        ...(redCardFeatureReady ? {red_card: Boolean(redCards[p.id])} : {}),
       }))
 
       const selectedIds = new Set(rows.map(r => r.player_id))
@@ -892,6 +949,7 @@ function AdminPanel() {
       setStatus(`מחזור ${number} נשמר בהצלחה ✅`)
       setWins({})
       setAttended({})
+      setRedCards({})
       setRoundPoints(null)
       setIsDraw(false)
       setWinnerFile(null)
@@ -911,10 +969,12 @@ function AdminPanel() {
     setRoundNumber(round.round_number)
     setRoundDate(round.round_date)
     setWinnerFile(null)
+    setWinnerPhotoPosition(round.winner_photo_position ?? 16)
     setIsDraw(round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור')
 
     const allRoundResults = results.filter(r => r.round_id === round.id)
     setAttended(Object.fromEntries(allRoundResults.map(r => [r.player_id, true])))
+    setRedCards(Object.fromEntries(allRoundResults.filter(r => r.red_card).map(r => [r.player_id, true])))
     const roundResults = allRoundResults.filter(r => r.won)
     const winMap = {}
     roundResults.forEach(r => { winMap[r.player_id] = true })
@@ -1215,7 +1275,7 @@ function AdminPanel() {
         )}
 
         {tab === 'teams' && (
-          <TeamBuilder players={players} rounds={rounds} />
+          <TeamBuilder players={players} rounds={rounds} editSessionId={teamEditSessionId} />
         )}
 
         {tab === 'analytics' && (
