@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { TEAM_COLORS, fullName } from './TeamBuilder'
 
@@ -85,7 +86,8 @@ function buildAnalytics(sessions, assignments, players) {
   return { pairs, playerStats, playerMap }
 }
 
-export default function TeamAnalytics({ players = [], publicView = false }) {
+export default function TeamAnalytics({ players = [], publicView = false, personalOnly = false }) {
+  const navigate = useNavigate()
   const [publicPlayers, setPublicPlayers] = useState([])
   const visiblePlayers = publicView ? publicPlayers : players
   const [sessions, setSessions] = useState([])
@@ -96,7 +98,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [range, setRange] = useState('all')
-  const [selectedPlayerId, setSelectedPlayerId] = useState('')
+  const [selectedPlayerId, setSelectedPlayerId] = useState(() => new URLSearchParams(window.location.search).get('playerId') || '')
 
   useEffect(() => {
     let cancelled = false
@@ -218,8 +220,8 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
       <div className="section-title analytics-title">
         <div>
           <span className="eyebrow">{publicView ? 'הליגה • נתונים ציבוריים' : 'ADMIN • פרטי'}</span>
-          <h1>נתונים וסטטיסטיקות</h1>
-          <p>ניתוח חלוקות הכוחות שאושרו בפועל: השתתפות, צמדים, צבעי קבוצות והיסטוריה לכל שחקן.</p>
+          <h1>{personalOnly ? 'ניתוח אישי' : 'נתונים וסטטיסטיקות'}</h1>
+          <p>{personalOnly ? 'ניתוח נתוני שחקן, חברים לקבוצה, הופעות לאורך העונה וצבעי קבוצות.' : 'ניתוח חלוקות הכוחות שאושרו בפועל: ציוותים, כרטיסים אדומים, נוכחות ושימוש בצבעי קבוצות.'}</p>
         </div>
         <label className="analytics-range">
           <span>טווח</span>
@@ -233,17 +235,17 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
 
       {error && <div className="notice error-box">{error}</div>}
 
-      <div className="analytics-kpis">
+      {!personalOnly && <div className="analytics-kpis">
         <div className="card analytics-kpi analytics-kpi-blue"><span className="analytics-kpi-icon" aria-hidden="true">⚽</span><span>חלוקות מאושרות</span><b>{filteredSessions.length}</b></div>
         <div className="card analytics-kpi analytics-kpi-green"><span className="analytics-kpi-icon" aria-hidden="true">👥</span><span>שחקנים שהשתתפו</span><b>{activePlayerCount}</b></div>
         <div className="card analytics-kpi analytics-kpi-purple"><span className="analytics-kpi-icon" aria-hidden="true">📊</span><span>ממוצע שחקנים למחזור</span><b>{averagePlayers}</b></div>
         <div className="card analytics-kpi analytics-kpi-amber"><span className="analytics-kpi-icon" aria-hidden="true">🤝</span><span>צמדים ששיחקו יחד</span><b>{analytics.pairs.length}</b></div>
-      </div>
+      </div>}
 
-      <div className="analytics-grid">
+      {!personalOnly && <div className="analytics-grid analytics-pairs-single">
         <div className="card analytics-pairs-card">
           <div className="analytics-card-head">
-            <div><span className="eyebrow">חיבורים</span><h2>מי שיחק הכי הרבה עם מי?</h2></div>
+            <div><span className="eyebrow">ציוותים</span><h2>מי שיחק הכי הרבה עם מי?</h2></div>
             <small>מבוסס רק על החלוקות שאושרו</small>
           </div>
           {!topPairs.length ? <div className="empty">עדיין אין מספיק היסטוריה.</div> : (
@@ -263,20 +265,9 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
           )}
         </div>
 
-        <div className="card analytics-participation-card">
-          <div className="analytics-card-head"><div><span className="eyebrow">נוכחות</span><h2>השתתפות במחזורים</h2></div></div>
-          <div className="analytics-participation-list">
-            {analytics.playerStats.map(stat => (
-              <button type="button" className={selectedPlayerId === stat.player.id ? 'selected' : ''} key={stat.player.id} onClick={() => setSelectedPlayerId(stat.player.id)}>
-                <span className="analytics-person"><img src={stat.player.photo_url || avatarFallback(fullName(stat.player))} alt="" /><b>{fullName(stat.player)}</b></span>
-                <span><b>{stat.appearances}</b><small>הופעות</small>{redCardsReady && redCounts.get(stat.player.id) > 0 && <small className="red-card-small">🟥 {redCounts.get(stat.player.id)}</small>}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      </div>}
 
-      <div className="card analytics-player-card">
+      {personalOnly && <div className="card analytics-player-card">
         <div className="analytics-player-selector">
           <div><span className="eyebrow">שחקן</span><h2>ניתוח אישי</h2></div>
           <select value={selectedPlayerId} onChange={e => setSelectedPlayerId(e.target.value)}>
@@ -341,10 +332,10 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
             </div>
           </>
         )}
-      </div>
+      </div>}
 
-      {redCardsReady && <div className="card analytics-red-cards">
-        <div className="analytics-card-head"><div><span className="eyebrow">משמעת</span><h2>🟥 כרטיסים אדומים</h2></div><b>{redCardTotal} בסך הכול בטווח שנבחר</b></div>
+      {!personalOnly && redCardsReady && <div className="card analytics-red-cards">
+        <div className="analytics-card-head"><div><span className="eyebrow">כרטיסים אדומים</span><h2>🟥 כרטיסים אדומים</h2></div><b>{redCardTotal} בסך הכול בטווח שנבחר</b></div>
         {redCardLeaders.length === 0 ? <p className="analytics-no-red-cards">לא נרשמו כרטיסים אדומים בטווח הזה.</p> :
           <div className="analytics-red-card-rows">
             {redCardLeaders.map(player => <div className="analytics-red-card-row" key={player.id}>
@@ -354,7 +345,19 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
           </div>}
       </div>}
 
-      <div className="card analytics-color-usage">
+      {!personalOnly && <div className="card analytics-participation-card">
+          <div className="analytics-card-head"><div><span className="eyebrow">נוכחות</span><h2>השתתפות במחזורים</h2></div><small>לחיצה על שחקן פותחת את הניתוח האישי שלו</small></div>
+          <div className="analytics-participation-list">
+            {analytics.playerStats.map(stat => (
+              <button type="button" className={selectedPlayerId === stat.player.id ? 'selected' : ''} key={stat.player.id} onClick={() => navigate('/personal-analysis?playerId=' + encodeURIComponent(stat.player.id))}>
+                <span className="analytics-person"><img src={stat.player.photo_url || avatarFallback(fullName(stat.player))} alt="" /><b>{fullName(stat.player)}</b></span>
+                <span><b>{stat.appearances}</b><small>הופעות</small>{redCardsReady && redCounts.get(stat.player.id) > 0 && <small className="red-card-small">🟥 {redCounts.get(stat.player.id)}</small>}</span>
+              </button>
+            ))}
+          </div>
+        </div>}
+
+      {!personalOnly && <div className="card analytics-color-usage">
         <div className="analytics-card-head"><div><span className="eyebrow">כללי</span><h2>שימוש בצבעי הקבוצות</h2></div></div>
         <div className="analytics-colors analytics-colors-wide">
           {TEAM_COLORS.map(team => (
@@ -365,7 +368,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
     </section>
   )
 }
