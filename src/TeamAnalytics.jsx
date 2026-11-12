@@ -86,7 +86,7 @@ function buildAnalytics(sessions, assignments, players) {
   return { pairs, playerStats, playerMap }
 }
 
-export default function TeamAnalytics({ players = [], publicView = false, personalOnly = false }) {
+export default function TeamAnalytics({ players = [], publicView = false, personalOnly = false, initialPlayerId = null, onOpenPersonal = null }) {
   const navigate = useNavigate()
   const [publicPlayers, setPublicPlayers] = useState([])
   const visiblePlayers = publicView ? publicPlayers : players
@@ -98,7 +98,7 @@ export default function TeamAnalytics({ players = [], publicView = false, person
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [range, setRange] = useState('all')
-  const [selectedPlayerId, setSelectedPlayerId] = useState(() => new URLSearchParams(window.location.search).get('playerId') || '')
+  const [selectedPlayerId, setSelectedPlayerId] = useState(() => initialPlayerId || new URLSearchParams(window.location.search).get('playerId') || '')
 
   useEffect(() => {
     let cancelled = false
@@ -349,7 +349,10 @@ export default function TeamAnalytics({ players = [], publicView = false, person
           <div className="analytics-card-head"><div><span className="eyebrow">נוכחות</span><h2>השתתפות במחזורים</h2></div><small>לחיצה על שחקן פותחת את הניתוח האישי שלו</small></div>
           <div className="analytics-participation-list">
             {analytics.playerStats.map(stat => (
-              <button type="button" className={selectedPlayerId === stat.player.id ? 'selected' : ''} key={stat.player.id} onClick={() => navigate('/personal-analysis?playerId=' + encodeURIComponent(stat.player.id))}>
+              <button type="button" className={selectedPlayerId === stat.player.id ? 'selected' : ''} key={stat.player.id} onClick={() => {
+                if (onOpenPersonal) onOpenPersonal(stat.player.id)
+                else navigate('/personal-analysis?playerId=' + encodeURIComponent(stat.player.id))
+              }}>
                 <span className="analytics-person"><img src={stat.player.photo_url || avatarFallback(fullName(stat.player))} alt="" /><b>{fullName(stat.player)}</b></span>
                 <span><b>{stat.appearances}</b><small>הופעות</small>{redCardsReady && redCounts.get(stat.player.id) > 0 && <small className="red-card-small">🟥 {redCounts.get(stat.player.id)}</small>}</span>
               </button>
