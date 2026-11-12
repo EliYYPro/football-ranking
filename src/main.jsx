@@ -105,6 +105,7 @@ function PublicArchive() {
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [lightbox, setLightbox] = useState(null)
+  const [canEditTeams, setCanEditTeams] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -112,7 +113,7 @@ function PublicArchive() {
     async function load() {
       setLoading(true)
       const [roundsRes, teamArchiveRes] = await Promise.all([
-        supabase.from('rounds').select('id, round_number, round_date, winner_photo_url, winner_caption').order('round_number', { ascending: false }),
+        supabase.from('rounds').select('*').order('round_number', { ascending: false }),
         supabase.from('public_team_archive').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }),
       ])
       const err = roundsRes.error || teamArchiveRes.error
@@ -143,6 +144,18 @@ function PublicArchive() {
       setLoading(false)
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function checkTeamEditRights() {
+      const { data: auth } = await supabase.auth.getSession()
+      if (!auth?.session) return
+      const { data, error } = await supabase.rpc('is_admin')
+      if (!cancelled && !error) setCanEditTeams(data === true)
+    }
+    checkTeamEditRights()
+    return () => { cancelled = true }
   }, [])
 
   function downloadTeamsImage(session, rows) {
@@ -213,8 +226,9 @@ function PublicArchive() {
           <div className="archive-photo-grid">
             {rounds.filter(r => r.winner_photo_url).length === 0 ? <div className="empty card">עדיין אין תמונות ניצחון בארכיון.</div> : rounds.filter(r => r.winner_photo_url).map(round => (
               <button type="button" className="archive-photo-card card" key={round.id} onClick={() => setLightbox({ url: round.winner_photo_url, alt: `זוכי מחזור ${round.round_number}` })}>
-                <img src={round.winner_photo_url} alt={`זוכי מחזור ${round.round_number}`} />
-                <span><b>{round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : `מחזור ${round.round_number}`}</b><small>מחזור {round.round_number} • {formatDate(round.round_date)}</small></span>
+                <span className="archive-round-tag">מחזור {round.round_number}</span>
+                <img src={round.winner_photo_url} alt={`זוכי מחזור ${round.round_number}`} style={{objectPosition: `center ${round.winner_photo_position ?? 16}%`}} />
+                <span><b>{round.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : 'תמונת הזוכים'}</b><small>{formatDate(round.round_date)}</small></span>
               </button>
             ))}
           </div>
@@ -228,6 +242,7 @@ function PublicArchive() {
                     <div><span className="eyebrow">מחזור {session.round_number || '—'}</span><h2>{formatDate(session.session_date)}</h2></div>
                     <span>{session.selected_count} שחקנים</span>
                   </div>
+                  {canEditTeams && <Link className="secondary tb-share-teams" to={`/admin?editTeamSession=${encodeURIComponent(session.id)}`}>✎ ערוך חלוקת כוחות</Link>}
                   <button type="button" className="secondary tb-share-teams" onClick={() => downloadTeamsImage(session, rows)}>הורד תמונת קבוצות</button>
                   <button type="button" className="secondary tb-share-teams" onClick={() => {
                     const text = 'חלוקת קבוצות – מחזור ' + (session.round_number || '') + '\\n' + TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => team.name + ': ' + rows.filter(r => r.team_color === team.key).map(r => r.player?.name || 'שחקן').join(', ')).join('\\n')
@@ -378,7 +393,7 @@ function Home() {
         {latestRound?.winner_photo_url && (
           <section className="winner-card card">
             <button type="button" className="winner-photo-button" onClick={() => setLightbox({ url: latestRound.winner_photo_url, alt: `זוכי מחזור ${latestRound.round_number}` })}>
-              <img src={latestRound.winner_photo_url} alt={`זוכי מחזור ${latestRound.round_number}`} />
+              <img src={latestRound.winner_photo_url} alt={`זוכי מחזור ${latestRound.round_number}`} style={{objectPosition: `center ${latestRound.winner_photo_position ?? 16}%`}} />
             </button>
             <div className="winner-copy">
               <span className="eyebrow">🏆 זוכי השבוע</span>
@@ -471,7 +486,7 @@ function Home() {
             <div className="round-cards">
               {recentRounds.map(r => (
                 <button type="button" className="mini-round card mini-round-button" key={r.id} disabled={!r.winner_photo_url} onClick={() => r.winner_photo_url && setLightbox({ url: r.winner_photo_url, alt: `זוכי מחזור ${r.round_number}` })}>
-                  {r.winner_photo_url ? <img src={r.winner_photo_url} alt="" /> : <div className="mini-placeholder">🏆</div>}
+                  {r.winner_photo_url ? <img src={r.winner_photo_url} style={{objectPosition: `center ${r.winner_photo_position ?? 16}%`}} alt="" /> : <div className="mini-placeholder">🏆</div>}
                   <div>
                     <b>{r.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : `מחזור ${r.round_number}`}</b>
                     <span>מחזור {r.round_number} • {formatDate(r.round_date)}</span>
