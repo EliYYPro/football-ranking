@@ -398,7 +398,7 @@ export function RatingEditor({ player, initialRating, onClose, onSaved = () => {
   )
 }
 
-export function TeamHistoryPanel({ players = [] }) {
+export function TeamHistoryPanel({ players = [], onEdit = null }) {
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [expandedId, setExpandedId] = useState(null)
@@ -450,7 +450,9 @@ export function TeamHistoryPanel({ players = [] }) {
               <span>{expandedId === session.id ? '▲' : '▼'}</span>
             </button>
             {expandedId === session.id && (
-              <div className="tb-archive-team-grid">
+              <>
+                {onEdit && <div className="tb-admin-history-edit"><button type="button" className="secondary" onClick={() => onEdit(session.id)}>✎ ערוך חלוקת כוחות – מחזור {session.round_number}</button></div>}
+                <div className="tb-archive-team-grid">
                 {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
                   <div className={`tb-archive-team team-${team.key}`} key={team.key}>
                     <b>{team.name}</b>
@@ -460,7 +462,8 @@ export function TeamHistoryPanel({ players = [] }) {
                     })}
                   </div>
                 ))}
-              </div>
+                </div>
+              </>
             )}
           </article>
         )
@@ -474,7 +477,10 @@ export const hasTeamDraft = () => hasMeaningfulTeamDraft(readSavedDraft('footbal
 const readDraft = () => readSavedDraft('football-team-draft', {})
 export default function TeamBuilder({ players = [], rounds = [], editSessionId = null }) {
   const handledDirectEdit = useRef(null)
-  const [initialDraft] = useState(readDraft)
+  const [initialDraft] = useState(() => {
+    const saved = readDraft()
+    return saved.editingSessionId && !editSessionId ? {} : saved
+  })
   const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
   const [ratings, setRatings] = useState({})
   const [sessions, setSessions] = useState([])
@@ -525,7 +531,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     clearDraft('football-team-draft')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
+  function cancelEdit() { setEditingSessionId(null); setDraftTeams(null); setBalanceScore(null); setSelectedIds([]); setUndoStack([]); setLockedColorKeys([]); setShowConfirmation(false); setRoundNumber(nextRoundNumber); setMessage('העריכה בוטלה. החלוקה השמורה לא השתנתה.') }
 
   async function loadPrivateData() {
     setLoading(true)
@@ -563,8 +569,22 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
   }, [sessions, rounds])
 
   useEffect(() => {
-    setRoundNumber(prev => prev === 1 ? nextRoundNumber : prev)
-  }, [nextRoundNumber])
+    if (loading || editSessionId || editingSessionId) return
+    if (Number(roundNumber) < nextRoundNumber) {
+      setSelectedIds([])
+      setTeamCount(4)
+      setSelectedColorKeys(TEAM_COLORS.slice(0, 4).map(t => t.key))
+      setPreferredSize(5)
+      setDraftTeams(null)
+      setBalanceScore(null)
+      setUndoStack([])
+      setLockedColorKeys([])
+      setShowConfirmation(false)
+      setRoundNumber(nextRoundNumber)
+      clearDraft('football-team-draft')
+      setMessage(`מחזורים שכבר נשמרו נעולים. חלוקה חדשה נפתחת במחזור ${nextRoundNumber}; לעריכה יש להיכנס לארכיון.`)
+    }
+  }, [loading, nextRoundNumber, roundNumber, editingSessionId, editSessionId])
 
   const pairCounts = useMemo(() => buildPairCounts(sessions, assignments), [sessions, assignments])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
@@ -596,7 +616,6 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     })
     setDraftTeams(null)
     setBalanceScore(null)
-    setEditingSessionId(null)
     setLockedColorKeys([])
     setUndoStack([])
     setShowConfirmation(false)
@@ -929,9 +948,13 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
       {message && <div className={`tb-message ${message.startsWith('שגיאה') ? 'error-box' : 'status'}`}>{message}</div>}
 
       <div className="card tb-round-setup">
-        <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>מספר המחזור הבא נשמר לפי ההיסטוריה ולא חוזר אחורה.</p></div>
+        <div><span className="eyebrow">שלב 1</span><h2>מחזור ותאריך</h2><p>{editingSessionId ? 'עריכת מחזור שמור דרך הארכיון. מספר המחזור נעול.' : `מחזור חדש מתחיל ב־${nextRoundNumber}. מחזורים קודמים נעולים לעריכה דרך הארכיון.`}</p></div>
         <div className="tb-round-fields">
-          <label className="tb-round-number-label">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מספר מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => setRoundNumber(n => Math.max(1, (Number(n) || 1) - 1))}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => setRoundNumber(n => (Number(n) || 0) + 1)}>›</button></div></label>
+          <label className="tb-round-number-label">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מספר מחזור">
+            <button type="button" aria-label="מחזור קודם" disabled={loading || Boolean(editingSessionId) || Number(roundNumber) <= nextRoundNumber} onClick={() => setRoundNumber(n => Math.max(nextRoundNumber, (Number(n) || nextRoundNumber) - 1))}>‹</button>
+            <span aria-live="polite">{roundNumber}</span>
+            <button type="button" aria-label="מחזור הבא" disabled={loading || Boolean(editingSessionId)} onClick={() => setRoundNumber(n => Math.max(nextRoundNumber, Number(n) || nextRoundNumber) + 1)}>›</button>
+          </div></label>
           <label>תאריך<input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} /></label>
         </div>
       </div>
@@ -1070,7 +1093,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
         <div className="tb-history-head"><div><span className="eyebrow">היסטוריה</span><h2>חלוקות ממחזורים קודמים</h2></div><small>המערכת משתמשת בהיסטוריה כדי לצמצם חזרה על אותם הרכבים.</small></div>
         {!sessions.length ? <div className="empty">עדיין לא נשמרה חלוקת כוחות.</div> : (
           <div className="tb-history-table">
-            <div className="tb-history-row head"><span>מחזור</span><span>תאריך</span><span>שחקנים</span><span>קבוצות</span><span>איזון</span><span>פעולות</span></div>
+            <div className="tb-history-row head"><span>מחזור</span><span>תאריך</span><span>שחקנים</span><span>קבוצות</span><span>איזון</span><span>סטטוס</span></div>
             {sessions.map(session => (
               <div className="tb-history-row" key={session.id}>
                 <span>{session.round_number || '—'}</span>
@@ -1078,10 +1101,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
                 <span>{session.selected_count}</span>
                 <span>{session.team_count || new Set(assignments.filter(a => a.session_id === session.id).map(a => a.team_color)).size || 4}</span>
                 <span>{session.balance_score ? `${session.balance_score}%` : '—'}</span>
-                <span className="tb-history-actions">
-                  <button type="button" className="secondary" onClick={() => loadSavedSession(session)}>ערוך</button>
-                  <button type="button" className="danger soft" onClick={() => deleteSavedSession(session)}>מחק</button>
-                </span>
+                <span className="tb-history-actions"><span className="tb-history-locked">🔒 שמור • עריכה בארכיון</span></span>
               </div>
             ))}
           </div>
