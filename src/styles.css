@@ -1576,3 +1576,30 @@ footer{color:#617d93}
  .analytics-red-card-rows{grid-template-columns:1fr}
  .photo-crop-preview{height:190px}
 }
+
+
+/* Keep pairings in its familiar right-hand column; red cards follow alongside it. */
+.analytics-pairs-single{grid-template-columns:minmax(0,1.45fr) minmax(300px,.75fr)}
+.analytics-pairs-single .analytics-red-cards{align-self:start;margin:0}
+.analytics-participation-card{margin-top:18px}
+.analytics-participation-card .analytics-participation-list{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;
+  max-height:none!important;overflow:visible!important
+}
+.analytics-participation-card .analytics-participation-list button{
+  border-top:1px solid #17344a;min-width:0
+}
+.analytics-participation-card .analytics-participation-list button:first-child{border-top:1px solid #17344a}
+.tb-admin-history-edit{display:flex;justify-content:flex-start;padding:14px 16px 0}
+.tb-admin-history-edit button{border:1px solid #3195d5;background:#155885;color:#fff;font-weight:900;padding:12px 18px}
+.tb-admin-history-edit button:hover{background:#1c75aa}
+.tb-history-locked{display:inline-flex;align-items:center;color:#a8c2d6;font-size:12px;font-weight:800}
+@media(max-width:900px){.analytics-pairs-single{grid-template-columns:1fr}}
+@media(max-width:760px){
+  /* Five destinations need more space than four; use two neat rows instead of cramped chips. */
+  .topbar .topbar-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .topbar .site-nav-link{font-size:12px;min-height:43px}
+  .analytics-participation-card .analytics-participation-list{grid-template-columns:1fr}
+  .tb-admin-history-edit button{width:100%}
+  .tb-history-locked{font-size:11px}
+}
