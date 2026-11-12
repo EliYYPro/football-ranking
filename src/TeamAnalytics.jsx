@@ -91,10 +91,29 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [roundAppearances, setRoundAppearances] = useState({})
+  const [redCardEntries, setRedCardEntries] = useState([])
+  const [redCardsReady, setRedCardsReady] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [range, setRange] = useState('all')
   const [selectedPlayerId, setSelectedPlayerId] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadRedCards() {
+      const [resultsRes, roundsRes] = await Promise.all([
+        supabase.from('results').select('player_id,round_id,red_card'),
+        supabase.from('rounds').select('id,round_number'),
+      ])
+      if (cancelled) return
+      if (resultsRes.error || roundsRes.error) { setRedCardsReady(false); return }
+      const roundMap = new Map((roundsRes.data || []).map(round => [round.id, Number(round.round_number)]))
+      setRedCardEntries((resultsRes.data || []).filter(r => r.red_card).map(r => ({player_id:r.player_id, round_number:roundMap.get(r.round_id)})))
+      setRedCardsReady(true)
+    }
+    loadRedCards()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -160,6 +179,17 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
   const averagePlayers = filteredSessions.length ? Math.round((filteredAssignments.length / filteredSessions.length) * 10) / 10 : 0
   const activePlayerCount = analytics.playerStats.filter(x => x.appearances > 0).length
   const topPairs = analytics.pairs.slice(0, 12)
+  const redCounts = useMemo(() => {
+    const validRounds = new Set(filteredSessions.map(s => Number(s.round_number)))
+    const counts = new Map()
+    redCardEntries.forEach(row => {
+      if (range !== 'all' && !validRounds.has(row.round_number)) return
+      counts.set(row.player_id, (counts.get(row.player_id) || 0) + 1)
+    })
+    return counts
+  }, [redCardEntries, filteredSessions, range])
+  const redCardTotal = [...redCounts.values()].reduce((sum, n) => sum + n, 0)
+  const redCardLeaders = visiblePlayers.filter(p => redCounts.has(p.id)).sort((a,b) => (redCounts.get(b.id) || 0) - (redCounts.get(a.id) || 0) || fullName(a).localeCompare(fullName(b),'he'))
 
   const colorTotals = useMemo(() => {
     const result = Object.fromEntries(TEAM_COLORS.map(t => [t.key, 0]))
@@ -239,7 +269,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
             {analytics.playerStats.map(stat => (
               <button type="button" className={selectedPlayerId === stat.player.id ? 'selected' : ''} key={stat.player.id} onClick={() => setSelectedPlayerId(stat.player.id)}>
                 <span className="analytics-person"><img src={stat.player.photo_url || avatarFallback(fullName(stat.player))} alt="" /><b>{fullName(stat.player)}</b></span>
-                <span><b>{stat.appearances}</b><small>הופעות</small></span>
+                <span><b>{stat.appearances}</b><small>הופעות</small>{redCardsReady && redCounts.get(stat.player.id) > 0 && <small className="red-card-small">🟥 {redCounts.get(stat.player.id)}</small>}</span>
               </button>
             ))}
           </div>
@@ -259,7 +289,7 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
             <div className="analytics-player-summary">
               <div className="analytics-selected-player">
                 <img src={selectedStats.player.photo_url || avatarFallback(fullName(selectedStats.player))} alt="" />
-                <div><h3>{fullName(selectedStats.player)}</h3><span>{selectedStats.appearances} הופעות בטווח שנבחר</span></div>
+                <div><h3>{fullName(selectedStats.player)}</h3><span>{selectedStats.appearances} הופעות בטווח שנבחר</span>{redCardsReady && <span className="analytics-player-red-cards">🟥 {redCounts.get(selectedStats.player.id) || 0} כרטיסים אדומים בטווח הנבחר</span>}</div>
               </div>
               <div className="analytics-mini-kpis">
                 <div><b>{roundAppearances[selectedStats.player.id] ?? 0}</b><span>השתתפות במחזורי הליגה</span></div>
@@ -312,6 +342,17 @@ export default function TeamAnalytics({ players = [], publicView = false }) {
           </>
         )}
       </div>
+
+      {redCardsReady && <div className="card analytics-red-cards">
+        <div className="analytics-card-head"><div><span className="eyebrow">משמעת</span><h2>🟥 כרטיסים אדומים</h2></div><b>{redCardTotal} בסך הכול בטווח שנבחר</b></div>
+        {redCardLeaders.length === 0 ? <p className="analytics-no-red-cards">לא נרשמו כרטיסים אדומים בטווח הזה.</p> :
+          <div className="analytics-red-card-rows">
+            {redCardLeaders.map(player => <div className="analytics-red-card-row" key={player.id}>
+              <span className="analytics-person"><img src={player.photo_url || avatarFallback(fullName(player))} alt="" /><b>{fullName(player)}</b></span>
+              <strong>🟥 {redCounts.get(player.id)}</strong>
+            </div>)}
+          </div>}
+      </div>}
 
       <div className="card analytics-color-usage">
         <div className="analytics-card-head"><div><span className="eyebrow">כללי</span><h2>שימוש בצבעי הקבוצות</h2></div></div>
