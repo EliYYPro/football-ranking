@@ -1603,3 +1603,33 @@ footer{color:#617d93}
   .tb-admin-history-edit button{width:100%}
   .tb-history-locked{font-size:11px}
 }
+
+/* Statistics page: all four sections full-width and vertically stacked */
+.analytics-page .analytics-grid.analytics-pairs-single{
+  display:flex!important;
+  flex-direction:column;
+  grid-template-columns:none!important;
+  width:100%;
+  gap:18px;
+}
+.analytics-page .analytics-pairs-single > .analytics-pairs-card,
+.analytics-page .analytics-pairs-single > .analytics-red-cards,
+.analytics-page > .analytics-participation-card,
+.analytics-page > .analytics-color-usage{
+  display:block;
+  width:100%;
+  max-width:none;
+  min-width:0;
+  box-sizing:border-box;
+  margin:0;
+  align-self:stretch;
+}
+.analytics-page > .analytics-participation-card,
+.analytics-page > .analytics-color-usage{
+  margin-top:18px;
+}
+@media(max-width:760px){
+  .analytics-page .analytics-grid.analytics-pairs-single{gap:14px}
+  .analytics-page > .analytics-participation-card,
+  .analytics-page > .analytics-color-usage{margin-top:14px}
+}
