@@ -724,6 +724,7 @@ function AdminPanel() {
   const [ratings, setRatings] = useState({})
   const [ratingPlayer, setRatingPlayer] = useState(null)
   const [historyMode, setHistoryMode] = useState('photos')
+  const [personalPlayerId, setPersonalPlayerId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -1092,7 +1093,7 @@ function AdminPanel() {
   }
 
   function editSavedTeamAllocation(sessionId) {
-    if (hasTeamDraft() && !window.confirm('קיימת טיוטת חלוקה מקומית. לפתוח לעריכה את החלוקה השמורה מהארכיון?')) return
+    // The editor itself verifies whether opening this round would overwrite a local draft.
     setTeamEditSessionId(sessionId)
     setTab('teams')
   }
@@ -1323,11 +1324,14 @@ function AdminPanel() {
         )}
 
         {tab === 'analytics' && (
-          <TeamAnalytics players={players} />
+          <TeamAnalytics players={players} onOpenPersonal={playerId => {
+            setPersonalPlayerId(playerId)
+            setTab('personal')
+          }} />
         )}
 
         {tab === 'personal' && (
-          <TeamAnalytics players={players} personalOnly />
+          <TeamAnalytics players={players} personalOnly initialPlayerId={personalPlayerId} />
         )}
 
         {tab === 'history' && (
