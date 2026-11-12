@@ -265,6 +265,17 @@ export default function TeamAnalytics({ players = [], publicView = false, person
           )}
         </div>
 
+      {redCardsReady && <div className="card analytics-red-cards">
+        <div className="analytics-card-head"><div><h2>🟥 כרטיסים אדומים</h2></div><b>{redCardTotal} בסך הכול בטווח שנבחר</b></div>
+        {redCardLeaders.length === 0 ? <p className="analytics-no-red-cards">לא נרשמו כרטיסים אדומים בטווח הזה.</p> :
+          <div className="analytics-red-card-rows">
+            {redCardLeaders.map(player => <div className="analytics-red-card-row" key={player.id}>
+              <span className="analytics-person"><img src={player.photo_url || avatarFallback(fullName(player))} alt="" /><b>{fullName(player)}</b></span>
+              <strong>🟥 {redCounts.get(player.id)}</strong>
+            </div>)}
+          </div>}
+      </div>}
+
       </div>}
 
       {personalOnly && <div className="card analytics-player-card">
@@ -332,17 +343,6 @@ export default function TeamAnalytics({ players = [], publicView = false, person
             </div>
           </>
         )}
-      </div>}
-
-      {!personalOnly && redCardsReady && <div className="card analytics-red-cards">
-        <div className="analytics-card-head"><div><span className="eyebrow">כרטיסים אדומים</span><h2>🟥 כרטיסים אדומים</h2></div><b>{redCardTotal} בסך הכול בטווח שנבחר</b></div>
-        {redCardLeaders.length === 0 ? <p className="analytics-no-red-cards">לא נרשמו כרטיסים אדומים בטווח הזה.</p> :
-          <div className="analytics-red-card-rows">
-            {redCardLeaders.map(player => <div className="analytics-red-card-row" key={player.id}>
-              <span className="analytics-person"><img src={player.photo_url || avatarFallback(fullName(player))} alt="" /><b>{fullName(player)}</b></span>
-              <strong>🟥 {redCounts.get(player.id)}</strong>
-            </div>)}
-          </div>}
       </div>}
 
       {!personalOnly && <div className="card analytics-participation-card">
