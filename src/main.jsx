@@ -1182,6 +1182,19 @@ function AdminPanel() {
             </div>}
             <div className="card round-points-panel"><div><span className="eyebrow">שלב 3</span><h2>תיקו בין הקבוצות ללא אלופי מחזור</h2><p>אפשר לשמור מחזור ללא מנצחים וללא ניקוד.</p></div><button type="button" className={`secondary ${isDraw ? 'selected' : ''}`} aria-pressed={isDraw} onClick={() => { startRoundDraft(); setIsDraw(v => !v); setWins({}); setRoundPoints(null) }}>{isDraw ? '✓ תיקו ללא אלופי מחזור — נבחר' : 'סמן תיקו ללא אלופי מחזור'}</button></div>
 
+            <div className="card red-card-panel">
+              <div><span className="eyebrow">משמעת</span><h2>🟥 כרטיסים אדומים במחזור</h2><p>סמן שחקנים שקיבלו כרטיס אדום. האפשרות אינה משנה את הניקוד או את רשימת המנצחים.</p></div>
+              {!redCardFeatureReady ? (
+                <p className="red-card-unavailable">שמירת כרטיסים אדומים תופעל לאחר עדכון מסד הנתונים של הליגה.</p>
+              ) : roundParticipants.length ? (
+                <div className="red-card-player-grid">
+                  {roundParticipants.map(p => <button type="button" key={p.id} className={`red-card-player ${redCards[p.id] ? 'selected' : ''}`} aria-pressed={Boolean(redCards[p.id])} onClick={() => toggleRedCard(p.id)}>
+                    <span>{p.name}</span><strong>🟥 {redCards[p.id] ? 'סומן' : 'סמן'}</strong>
+                  </button>)}
+                </div>
+              ) : <p>בחר תחילה משתתפים למחזור.</p>}
+            </div>
+
             <div className="card weekly-upload">
               <div>
                 <span className="eyebrow">{isDraw ? 'תמונת תיקו בין הקבוצות' : 'תמונת ניצחון שבועית'}</span>
@@ -1190,6 +1203,24 @@ function AdminPanel() {
               </div>
               <div className="upload-fields">
                 <input type="file" accept="image/*" onChange={e => setWinnerFile(e.target.files?.[0] || null)} />
+                {(photoPreviewUrl || rounds.find(r => Number(r.round_number) === Number(roundNumber))?.winner_photo_url) && (
+                  <div className="photo-crop-editor">
+                    <div className="photo-crop-preview">
+                      <img src={photoPreviewUrl || rounds.find(r => Number(r.round_number) === Number(roundNumber))?.winner_photo_url} alt="תצוגה מקדימה של חיתוך התמונה" style={{objectPosition: `center ${winnerPhotoPosition}%`}} />
+                    </div>
+                    {photoFocusReady ? (
+                      <>
+                        <label>מיקום אנכי בתמונה: <b>{winnerPhotoPosition}%</b>
+                          <input type="range" min="0" max="100" step="1" value={winnerPhotoPosition} onChange={e => {startRoundDraft();setWinnerPhotoPosition(Number(e.target.value))}} />
+                        </label>
+                        <small>הזז את המחוון כדי למקם את ראשי השחקנים במסגרת. פתיחת התמונה בגודל מלא תציג את התמונה ללא חיתוך.</small>
+                        {!winnerFile && rounds.some(r => Number(r.round_number) === Number(roundNumber) && r.winner_photo_url) && (
+                          <button type="button" className="secondary" disabled={busy} onClick={savePhotoFocus}>שמור מיקום תמונה בלבד</button>
+                        )}
+                      </>
+                    ) : <small className="red-card-unavailable">שמירת מיקום התמונה תתאפשר לאחר עדכון מסד הנתונים.</small>}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1297,13 +1328,13 @@ function AdminPanel() {
                   const roundResults = results.filter(x => x.round_id === r.id)
                   return (
                     <article className="card admin-round-card" key={r.id}>
-                      {r.winner_photo_url && <a href={r.winner_photo_url} target="_blank" rel="noreferrer"><img src={r.winner_photo_url} alt={`זוכי מחזור ${r.round_number}`} /></a>}
+                      {r.winner_photo_url && <button type="button" className="admin-round-photo-button" onClick={() => setAdminPhotoLightbox({url:r.winner_photo_url,alt:`זוכי מחזור ${r.round_number}`})}><span className="archive-round-tag">מחזור {r.round_number}</span><img src={r.winner_photo_url} alt={`זוכי מחזור ${r.round_number}`} style={{objectPosition:`center ${r.winner_photo_position ?? 16}%`}} /></button>}
                       <div className="admin-round-body">
                         <div>
                           <span className="eyebrow">מחזור {r.round_number}</span>
                           <h3>{formatDate(r.round_date)}</h3>
                           {r.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' && <strong className="draw-round-label">תיקו בין הקבוצות</strong>}
-                          <p>{roundResults.length} שחקנים • {roundResults.reduce((sum, x) => sum + x.points, 0)} נקודות חולקו</p>
+                          <p>{roundResults.length} שחקנים • {roundResults.reduce((sum, x) => sum + x.points, 0)} נקודות חולקו{redCardFeatureReady ? ` • ${roundResults.filter(x => x.red_card).length} כרטיסים אדומים` : ''}</p>
                         </div>
                         <button className="secondary" onClick={() => loadRoundForEditing(r)}>ערוך מחזור</button>
                       </div>
@@ -1316,6 +1347,8 @@ function AdminPanel() {
             )}
           </section>
         )}
+
+        <PhotoLightbox url={adminPhotoLightbox?.url} alt={adminPhotoLightbox?.alt} onClose={() => setAdminPhotoLightbox(null)} />
 
         {ratingPlayer && (
           <RatingEditor
