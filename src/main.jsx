@@ -79,6 +79,7 @@ function Shell({ children }) {
           <NavLink end to="/" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ראשי</NavLink>
           <NavLink to="/archive" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ארכיון</NavLink>
           <NavLink to="/statistics" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>נתונים וסטטיסטיקות</NavLink>
+          <NavLink to="/personal-analysis" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ניתוח אישי</NavLink>
           <NavLink to="/admin" className={({isActive}) => `site-nav-link ${isActive ? 'active' : ''}`}>ניהול</NavLink>
         </nav>
       </header>
@@ -361,6 +362,10 @@ function usePublicHomeData() {
 
 function PublicStatistics() {
   return <Shell><main className="page"><TeamAnalytics publicView /></main></Shell>
+}
+
+function PublicPersonalAnalysis() {
+  return <Shell><main className="page"><TeamAnalytics publicView personalOnly /></main></Shell>
 }
 
 function Home() {
@@ -680,7 +685,7 @@ function AdminPanel() {
   const [roundDraftActive, setRoundDraftActive] = useState(Boolean(initialRoundDraft))
   const [roundDraftSavedAt, setRoundDraftSavedAt] = useState(initialRoundDraft?.updatedAt || null)
   const [editingRoundId, setEditingRoundId] = useState(initialRoundDraft?.editingRoundId || null)
-  const teamEditSessionId = new URLSearchParams(window.location.search).get('editTeamSession')
+  const [teamEditSessionId, setTeamEditSessionId] = useState(() => new URLSearchParams(window.location.search).get('editTeamSession'))
   const [tab, setTab] = useState(() => { if (teamEditSessionId) return 'teams'; try { return sessionStorage.getItem('football-admin-tab') || 'round' } catch { return 'round' } })
   useEffect(() => { try { sessionStorage.setItem('football-admin-tab', tab) } catch {} }, [tab])
   const [players, setPlayers] = useState([])
@@ -1078,11 +1083,18 @@ function AdminPanel() {
   }
 
   function changeTab(nextTab) {
+    if (nextTab === 'teams' && tab !== 'teams') setTeamEditSessionId(null)
     if (tab === 'teams' && nextTab !== 'teams' && hasTeamDraft() && !window.confirm('יש חלוקת כוחות באמצע עריכה. האם אתה בטוח שברצונך לעזוב את המסך? הטיוטה נשמרת ותוכל לחזור אליה.')) return
     if (tab === 'teams' && nextTab !== 'teams' && hasTeamDraft()) {
       try { sessionStorage.setItem('football-resume-team-draft', 'yes') } catch {}
     }
     setTab(nextTab)
+  }
+
+  function editSavedTeamAllocation(sessionId) {
+    if (hasTeamDraft() && !window.confirm('קיימת טיוטת חלוקה מקומית. לפתוח לעריכה את החלוקה השמורה מהארכיון?')) return
+    setTeamEditSessionId(sessionId)
+    setTab('teams')
   }
 
   async function logout() {
@@ -1099,6 +1111,7 @@ function AdminPanel() {
         <button className={tab === 'players' ? 'active' : ''} onClick={() => changeTab('players')}>👥 ניהול שחקנים</button>
         <button className={tab === 'teams' ? 'active' : ''} onClick={() => changeTab('teams')}>⚖️ חלוקת כוחות</button>
         <button className={tab === 'analytics' ? 'active' : ''} onClick={() => changeTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
+        <button className={tab === 'personal' ? 'active' : ''} onClick={() => changeTab('personal')}>👤 ניתוח אישי</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => changeTab('history')}>🕘 היסטוריה</button>
         <button className="admin-home-button" onClick={() => { if (tab !== 'teams' || !hasTeamDraft() || window.confirm('יש חלוקת כוחות באמצע עריכה. האם לעזוב את המסך?')) navigate('/') }}>⌂ חזרה למסך הראשי</button>
         <button onClick={logout}>↪ יציאה</button>
@@ -1313,6 +1326,10 @@ function AdminPanel() {
           <TeamAnalytics players={players} />
         )}
 
+        {tab === 'personal' && (
+          <TeamAnalytics players={players} personalOnly />
+        )}
+
         {tab === 'history' && (
           <section>
             <div className="section-title admin-history-title">
@@ -1343,7 +1360,7 @@ function AdminPanel() {
                 })}
               </div>
             ) : (
-              <TeamHistoryPanel players={players} />
+              <TeamHistoryPanel players={players} onEdit={editSavedTeamAllocation} />
             )}
           </section>
         )}
@@ -1370,6 +1387,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/archive" element={<PublicArchive />} />
         <Route path="/statistics" element={<PublicStatistics />} />
+        <Route path="/personal-analysis" element={<PublicPersonalAnalysis />} />
         <Route path="/player/:id" element={<Player />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
