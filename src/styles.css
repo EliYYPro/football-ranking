@@ -1522,3 +1522,57 @@ footer{color:#617d93}
 .tb-save-error strong{display:block;font-size:16px}
 .tb-save-error p{margin:6px 0 8px;overflow-wrap:anywhere}
 .tb-save-error small{color:#ffbabe}
+
+
+/* November 2026: archive controls, winner photo framing and red-card tracking */
+.archive-photo-card{position:relative}
+.archive-photo-card > .archive-round-tag,
+.admin-round-photo-button > .archive-round-tag{
+  position:absolute;right:13px;top:12px;z-index:2;display:inline-flex;
+  width:auto;align-items:center;justify-content:center;min-height:39px;
+  border:1px solid #79caff;border-radius:11px;padding:6px 13px;
+  background:#03233ce8;color:#fff;font-weight:900;font-size:21px;
+  line-height:1.15;box-shadow:0 5px 18px #0009
+}
+.public-team-session .tb-share-teams{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin:0 0 14px 8px}
+.admin-round-photo-button{display:block;position:relative;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;line-height:0}
+.admin-round-photo-button img{display:block;width:100%;height:210px;object-fit:cover}
+.archive-photo-card img,.winner-photo-button img,.mini-round img,.admin-round-photo-button img{object-position:center 16%}
+.photo-lightbox{cursor:zoom-out}
+.photo-lightbox img{cursor:default;max-height:calc(100dvh - 75px);max-width:min(1400px,95vw);width:auto;height:auto}
+.photo-lightbox-close{z-index:2}
+.red-card-panel{padding:20px 22px;margin:18px 0;color:#e8f4ff}
+.red-card-panel h2{margin:3px 0 6px;font-size:22px}
+.red-card-panel p{color:#9cbbd0;line-height:1.65;margin:0 0 14px}
+.red-card-player-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:9px}
+.red-card-player{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 12px;border:1px solid #27465c;border-radius:11px;background:#081b2c;color:#e9f5ff;font-weight:700;cursor:pointer;text-align:right}
+.red-card-player strong{font-size:12px;color:#ff9999;white-space:nowrap}
+.red-card-player.selected{border-color:#ed5360;background:#3c1724;box-shadow:inset 3px 0 #ed5360}
+.red-card-player.selected strong{color:#ffced1}
+.red-card-unavailable{color:#ffb9b9!important;font-weight:700}
+.photo-crop-editor{display:flex;flex-direction:column;gap:10px;margin-top:12px;min-width:0}
+.photo-crop-preview{overflow:hidden;border:1px solid #305a77;border-radius:12px;height:220px;width:100%;background:#081523}
+.photo-crop-preview img{display:block;width:100%;height:100%;object-fit:cover}
+.photo-crop-editor label{color:#d5edff;font-weight:800}
+.photo-crop-editor input[type="range"]{display:block;width:100%;margin:10px 0;accent-color:#269fe9;cursor:pointer}
+.photo-crop-editor small{color:#a2bfd2;line-height:1.6}
+.photo-crop-editor .secondary{align-self:flex-start}
+.analytics-red-cards{padding:20px;margin-bottom:18px}
+.analytics-red-cards .analytics-card-head{align-items:center;flex-wrap:wrap}
+.analytics-red-cards .analytics-card-head>b{color:#ffb5b5}
+.analytics-red-card-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}
+.analytics-red-card-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #213a4f;padding:10px 3px}
+.analytics-red-card-row strong{color:#ffaaaa;white-space:nowrap}
+.analytics-no-red-cards{color:#9cb9cc}
+.analytics-player-red-cards{display:block;color:#ffb0b0;margin-top:5px;font-weight:700}
+.analytics-participation-list .red-card-small{color:#ffb6b6!important}
+@media(max-width:720px){
+ .archive-photo-card > .archive-round-tag,.admin-round-photo-button > .archive-round-tag{top:9px;right:9px;font-size:17px;min-height:34px;padding:6px 10px}
+ .red-card-panel{padding:16px 12px}
+ .red-card-player-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .red-card-player{padding:9px 7px;font-size:12px}
+ .red-card-player strong{font-size:11px}
+ .analytics-red-cards{padding:15px 12px}
+ .analytics-red-card-rows{grid-template-columns:1fr}
+ .photo-crop-preview{height:190px}
+}
