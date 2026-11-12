@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { readDraft as readSavedDraft, saveDraft, clearDraft, hasMeaningfulTeamDraft, formatDraftTime } from './adminDrafts'
 
@@ -472,7 +472,8 @@ export function TeamHistoryPanel({ players = [] }) {
 const isCoach = (p) => String(p?.name || '').trim().replace(/\s+/g, ' ') === 'דניאל לשר'
 export const hasTeamDraft = () => hasMeaningfulTeamDraft(readSavedDraft('football-team-draft', {}))
 const readDraft = () => readSavedDraft('football-team-draft', {})
-export default function TeamBuilder({ players = [], rounds = [] }) {
+export default function TeamBuilder({ players = [], rounds = [], editSessionId = null }) {
+  const handledDirectEdit = useRef(null)
   const [initialDraft] = useState(readDraft)
   const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
   const [ratings, setRatings] = useState({})
@@ -530,7 +531,7 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setLoading(true)
     const [ratingsRes, sessionsRes] = await Promise.all([
       supabase.from('player_ratings').select('*'),
-      supabase.from('training_sessions').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }).limit(30),
+      supabase.from('training_sessions').select('*').order('round_number', { ascending: false, nullsFirst: false }).order('session_date', { ascending: false }).limit(200),
     ])
 
     if (ratingsRes.error || sessionsRes.error) {
@@ -875,6 +876,23 @@ export default function TeamBuilder({ players = [], rounds = [] }) {
     setMessage(`חלוקת מחזור ${session.round_number || '—'} נמחקה.`)
     await loadPrivateData()
   }
+
+  useEffect(() => {
+    if (!editSessionId || loading || !players.length || handledDirectEdit.current === editSessionId) return
+    const target = sessions.find(session => session.id === editSessionId)
+    handledDirectEdit.current = editSessionId
+    if (!target) {
+      setMessage('לא נמצאה חלוקה לעריכה. אפשר לבחור מחזור מתוך ההיסטוריה למטה.')
+      return
+    }
+    const unsaved = readDraft()
+    if (hasMeaningfulTeamDraft(unsaved) && unsaved.editingSessionId !== editSessionId
+        && !window.confirm('יש חלוקה לא שמורה במכשיר הזה. לפתוח את המחזור מהארכיון ולדרוס את הטיוטה?')) {
+      setMessage('הטיוטה המקומית נשמרה. לא נטענה חלוקה אחרת.')
+      return
+    }
+    loadSavedSession(target)
+  }, [editSessionId, loading, sessions, assignments, ratings, players])
 
   function loadSavedSession(session) {
     const rows = assignments.filter(a => a.session_id === session.id)
