@@ -477,6 +477,7 @@ export const hasTeamDraft = () => hasMeaningfulTeamDraft(readSavedDraft('footbal
 const readDraft = () => readSavedDraft('football-team-draft', {})
 export default function TeamBuilder({ players = [], rounds = [], editSessionId = null }) {
   const handledDirectEdit = useRef(null)
+  const vacantTeamRef = useRef(null)
   const [initialDraft] = useState(() => {
     const saved = readDraft()
     return saved.editingSessionId && !editSessionId ? {} : saved
@@ -649,10 +650,35 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
   }
 
   function togglePlayer(id) {
+    const wasSelected = selectedIds.includes(id)
     pushUndo()
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-    setDraftTeams(null)
-    setBalanceScore(null)
+    setSelectedIds(prev => wasSelected ? prev.filter(x => x !== id) : [...prev, id])
+    setShowConfirmation(false)
+
+    // Preserve a manually arranged or saved lineup when the attendance list changes.
+    // Previously clearing draftTeams here destroyed every team after one player was removed.
+    if (!draftTeams) return
+    const next = Object.fromEntries(activeTeamDefs.map(t => [t.key, [...(draftTeams[t.key] || [])]]))
+    if (wasSelected) {
+      const source = activeTeamDefs.find(t => next[t.key].some(player => player.id === id))
+      if (source) {
+        next[source.key] = next[source.key].filter(player => player.id !== id)
+        vacantTeamRef.current = source.key
+      }
+      setMessage('השחקן הוסר. שאר הקבוצות נשמרו; אפשר לבחור מחליף.')
+    } else {
+      const player = activePlayers.find(p => p.id === id)
+      if (!player) return
+      const target = (vacantTeamRef.current && activeTeamDefs.find(t => t.key === vacantTeamRef.current))
+        || [...activeTeamDefs].sort((a,b) => next[a.key].length - next[b.key].length)[0]
+      if (!target) return
+      const safeRating = ratingForGeneration(ratings[id])
+      next[target.key].push({ ...player, rating: safeRating, overall: overallRating(safeRating) ?? 5 })
+      vacantTeamRef.current = null
+      setMessage(`${fullName(player)} נוסף לקבוצה ${target.name}. שאר ההרכבים נשמרו.`)
+    }
+    setDraftTeams(next)
+    recalc(next)
   }
 
   async function generate() {
@@ -922,7 +948,8 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     rows.sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).forEach(row => {
       const player = activePlayers.find(p => p.id === row.player_id)
       if (!player || !nextTeams[row.team_color]) return
-      nextTeams[row.team_color].push({ ...player, rating: ratings[player.id], overall: overallRating(ratings[player.id]) })
+      const safeRating = ratingForGeneration(ratings[player.id])
+      nextTeams[row.team_color].push({ ...player, rating: safeRating, overall: overallRating(safeRating) ?? 5 })
     })
     setDraftTeams(nextTeams)
     setSelectedIds(rows.map(r => r.player_id))
