@@ -147,7 +147,7 @@ function PublicArchive() {
         player_id: row.player_id,
         team_color: row.team_color,
         team_position: row.team_position,
-        player: { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url },
+        player: { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url, is_guest: row.is_guest || false, guest_level: row.guest_level ?? null },
       })))
       setLoading(false)
     }
@@ -218,7 +218,7 @@ function PublicArchive() {
           const teamGroups = new Map()
           const counts = new Map()
           const teammateSets = new Map()
-          assignments.forEach(row => {
+          assignments.filter(row => !isGuestPlayer(row.player)).forEach(row => {
             counts.set(row.player_id, (counts.get(row.player_id) || 0) + 1)
             const key = row.session_id + ':' + row.team_color
             if (!teamGroups.has(key)) teamGroups.set(key, [])
@@ -262,7 +262,7 @@ function PublicArchive() {
                         {rows.filter(r => r.team_color === team.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(row => (
                           <div className="public-team-player" key={row.player_id}>
                             <img src={row.player?.photo_url || avatarFallback(row.player?.name)} alt="" />
-                            <span>{row.player?.name || 'שחקן'}</span>
+                            <span>{guestDisplayName(row.player) || 'שחקן'}{isGuestPlayer(row.player) && <small className="guest-archive-note"> · מזדמן {guestLevel(row.player)}</small>}</span>
                           </div>
                         ))}
                       </div>
