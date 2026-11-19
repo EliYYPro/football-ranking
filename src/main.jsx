@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams } f
 import { supabase } from './supabase'
 import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar } from './TeamBuilder'
 import TeamAnalytics from './TeamAnalytics'
+import { isGuestPlayer, isLeaguePlayer, guestLevel, guestDisplayName, guestBadge } from './guestPlayers'
 import { readDraft as readSavedDraft, saveDraft, clearDraft, formatDraftTime } from './adminDrafts'
 import './styles.css'
 
@@ -308,7 +309,7 @@ function usePublicHomeData() {
       return
     }
 
-    const leaders = (leadersRes.data || []).filter(p => !isCoach(p)).sort(compareLeaderboard)
+    const leaders = (leadersRes.data || []).filter(p => !isCoach(p) && !isGuestPlayer(p)).sort(compareLeaderboard)
     const rounds = roundsRes.data || []
     const latest = rounds[0] || null
     const nextTrendMap = {}
@@ -542,7 +543,7 @@ function Player() {
         setError(leadersRes.error?.message || resultsRes.error?.message || 'שגיאה בטעינת השחקן')
       }
 
-      const leaders = (leadersRes.data || []).filter(p => !isCoach(p))
+      const leaders = (leadersRes.data || []).filter(p => !isCoach(p) && !isGuestPlayer(p))
       const found = leaders.find(x => x.id === id)
       setPlayer(found || null)
       setPlace(found ? leaders.findIndex(x => x.id === id) + 1 : null)
@@ -815,7 +816,7 @@ function AdminPanel() {
     setStatus('טיוטת המחזור נמחקה. אפשר להתחיל מחזור חדש.')
   }
 
-  const activePlayers = players.filter(p => p.is_active && !isCoach(p))
+  const activePlayers = players.filter(p => isLeaguePlayer(p) && !isCoach(p))
   useEffect(() => {
     let cancelled = false
     async function getAttendance() {
@@ -934,10 +935,11 @@ function AdminPanel() {
 
       const selectedIds = new Set(rows.map(r => r.player_id))
       const activeIds = new Set(activePlayers.map(p => p.id))
+      const guestIds = new Set(players.filter(isGuestPlayer).map(p => p.id))
       const { data: existingResults, error: existingResultsError } = await supabase.from('results').select('id, player_id').eq('round_id', roundRow.id)
       if (existingResultsError) throw existingResultsError
       const idsToDelete = (existingResults || [])
-        .filter(r => activeIds.has(r.player_id) && !selectedIds.has(r.player_id))
+        .filter(r => (activeIds.has(r.player_id) || guestIds.has(r.player_id)) && !selectedIds.has(r.player_id))
         .map(r => r.id)
 
       if (idsToDelete.length) {
@@ -1261,7 +1263,7 @@ function AdminPanel() {
               {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => {
                 const playerOverall = overallRating(ratings[p.id])
                 return (
-                <div key={p.id} className={`${!p.is_active ? 'inactive-row ' : ''}${isCoach(p) ? 'coach-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
+                <div key={p.id} className={`${!p.is_active && !isGuestPlayer(p) ? 'inactive-row ' : ''}${isCoach(p) ? 'coach-row ' : ''}${isGuestPlayer(p) ? 'guest-player-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
                   {editingPlayerId === p.id ? (
                     <div className="player-edit-panel">
                       <div className="player-edit-head">
@@ -1300,16 +1302,16 @@ function AdminPanel() {
                     <>
                       <span className="player">
                         {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
-                        <span className="player-text"><b>{p.name}</b>{isCoach(p) && <small>מאמן • משתתף בחלוקה לפי הצורך</small>}</span>
+                        <span className="player-text"><b>{guestDisplayName(p)}</b>{isCoach(p) && <small>מאמן • משתתף בחלוקה לפי הצורך</small>}{isGuestPlayer(p) && <small className="guest-badge">⚽ {guestBadge(p)} · חלוקת כוחות בלבד</small>}</span>
                       </span>
-                      <span className={`player-rating-badge ${ratingLevelClass(playerOverall)}`}>{playerOverall ?? '—'}</span>
-                      <span>{isCoach(p) ? 'מאמן' : p.is_active ? 'פעיל' : 'מוסתר'}</span>
+                      <span className={`player-rating-badge ${ratingLevelClass(isGuestPlayer(p) ? guestLevel(p) : playerOverall)}`}>{isGuestPlayer(p) ? guestLevel(p) : playerOverall ?? '—'}</span>
+                      <span>{isCoach(p) ? 'מאמן' : isGuestPlayer(p) ? 'מזדמן' : p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
                         <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתונים</button>
                         <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
-                        <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
+                        {!isGuestPlayer(p) && <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
                           {p.is_active ? 'הסתר' : 'החזר'}
-                        </button>
+                        </button>}
                       </span>
                     </>
                   )}
