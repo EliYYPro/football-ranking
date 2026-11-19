@@ -130,30 +130,60 @@ function pairKey(a, b) {
   return [a, b].sort().join('|')
 }
 
-function buildPairCounts(sessions, assignments, guestIds = new Set()) {
-  const counts = new Map()
-  const recentSessions = sessions.slice(0, 12)
-  const weights = new Map(recentSessions.map((s,i) => [s.id, i < 3 ? 3 : i < 6 ? 2 : 1]))
-  const recentIds = new Set(weights.keys())
+function tripleKey(a, b, c) {
+  return [a, b, c].sort().join('|')
+}
+
+// Rotate pairings AND three-player cores across the last three approved rounds.
+// Recent rounds matter most; guests are placeholders and do not build history.
+function buildRecentTeammateHistory(sessions, assignments, guestIds = new Set()) {
+  const pairs = new Map()
+  const triples = new Map()
+  const recentSessions = [...sessions]
+    .sort((a, b) => Number(b.round_number || 0) - Number(a.round_number || 0) ||
+      String(b.session_date || '').localeCompare(String(a.session_date || '')))
+    .slice(0, 3)
+  const weights = new Map(recentSessions.map((session, index) => [session.id, 3 - index]))
   const grouped = new Map()
 
-  assignments.filter(a => recentIds.has(a.session_id) && !guestIds.has(a.player_id)).forEach(a => {
-    const key = `${a.session_id}:${a.team_color}`
-    if (!grouped.has(key)) grouped.set(key, [])
-    grouped.get(key).push(a.player_id)
+  assignments.filter(row => weights.has(row.session_id) && !guestIds.has(row.player_id)).forEach(row => {
+    const key = `${row.session_id}:${row.team_color}`
+    if (!grouped.has(key)) grouped.set(key, new Set())
+    grouped.get(key).add(row.player_id)
   })
 
-  grouped.forEach((ids, teamKey) => {
-    const sessionId = teamKey.split(':')[0]
-    for (let i = 0; i < ids.length; i += 1) {
-      for (let j = i + 1; j < ids.length; j += 1) {
-        const key = pairKey(ids[i], ids[j])
-        counts.set(key, (counts.get(key) || 0) + (weights.get(sessionId) || 1))
+  grouped.forEach((players, teamKey) => {
+    const ids = [...players]
+    const weight = weights.get(teamKey.split(':')[0]) || 1
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const pair = pairKey(ids[i], ids[j])
+        pairs.set(pair, (pairs.get(pair) || 0) + weight)
+        for (let k = j + 1; k < ids.length; k++) {
+          const triple = tripleKey(ids[i], ids[j], ids[k])
+          triples.set(triple, (triples.get(triple) || 0) + weight)
+        }
       }
     }
   })
 
-  return counts
+  return { pairs, triples }
+}
+
+function reunionPenalty(team, history) {
+  let pairs = 0
+  let triples = 0
+  for (let i = 0; i < team.length; i++) {
+    for (let j = i + 1; j < team.length; j++) {
+      pairs += history.pairs.get(pairKey(team[i].id, team[j].id)) || 0
+      for (let k = j + 1; k < team.length; k++) {
+        triples += history.triples.get(tripleKey(team[i].id, team[j].id, team[k].id)) || 0
+      }
+    }
+  }
+  // A repeated trio is recognized as a core, not counted as a hard prohibition.
+  // The scale stays below team-strength variance to preserve balance.
+  return { pairs, triples, total: pairs + triples * 0.35 }
 }
 
 function teamMetrics(team) {
@@ -169,7 +199,7 @@ function teamMetrics(team) {
   }
 }
 
-function evaluateTeams(teams, pairCounts, mode = 'balanced') {
+function evaluateTeams(teams, history, mode = 'balanced') {
   const metrics = teams.map(teamMetrics)
   const avgSize = average(metrics.map(m => m.size))
 
@@ -180,11 +210,11 @@ function evaluateTeams(teams, pairCounts, mode = 'balanced') {
   let repeatPenalty = 0
   let repeatedPairs = 0
   teams.forEach(team => {
-    for (let i = 0; i < team.length; i += 1) {
-      for (let j = i + 1; j < team.length; j += 1) {
-        const repeats = pairCounts.get(pairKey(team[i].id, team[j].id)) || 0
-        repeatPenalty += repeats
-        if (repeats > 0) repeatedPairs += 1
+    const recent = reunionPenalty(team, history)
+    repeatPenalty += recent.total
+    for (let i = 0; i < team.length; i++) {
+      for (let j = i + 1; j < team.length; j++) {
+        if (history.pairs.has(pairKey(team[i].id, team[j].id))) repeatedPairs++
       }
     }
   })
@@ -224,7 +254,7 @@ function capacitiesFor(count, teamCount) {
   return Array.from({ length: safeTeamCount }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 'balanced', lockedTeams = {}) {
+function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'balanced', lockedTeams = {}) {
   if (!Array.isArray(selectedPlayers) || !selectedPlayers.length) return null
   if (!Array.isArray(activeTeams) || activeTeams.length < 2) return null
 
@@ -249,7 +279,7 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 
       const next = [...team, player]
       const targetAverage = leagueAverage - (capacities[index] - averageCapacity) * 0.72
       const projectedAverage = average(next.map(p => Number(p.overall || 5)))
-      const repeats = team.reduce((sum, teammate) => sum + (pairCounts.get(pairKey(player.id, teammate.id)) || 0), 0)
+      const repeats = reunionPenalty(next, history).total - reunionPenalty(team, history).total
       const positions = next.map(p => p.rating?.preferred_position || 'general')
       const duplicatePositionPenalty = positions.filter(pos => pos === player.rating?.preferred_position && pos !== 'general').length > 1 ? 0.08 : 0
       const goalkeeperBoost = player.rating?.preferred_position === 'goalkeeper' && team.some(p => p.rating?.preferred_position === 'goalkeeper') ? 0.35 : 0
@@ -281,12 +311,12 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 
     capacities.forEach((capacity, teamIndex) => {
       fallbackTeams[teamIndex].push(...pool.splice(0, Math.max(0, capacity - fallbackTeams[teamIndex].length)))
     })
-    const fallbackEvaluation = evaluateTeams(fallbackTeams, pairCounts, mode)
+    const fallbackEvaluation = evaluateTeams(fallbackTeams, history, mode)
     return { teams: fallbackTeams, evaluation: fallbackEvaluation }
   }
 
   let bestTeams = teams.map(team => [...team])
-  let bestEvaluation = evaluateTeams(bestTeams, pairCounts, mode)
+  let bestEvaluation = evaluateTeams(bestTeams, history, mode)
 
   // Lightweight local optimization: swap players between teams when the score improves.
   // Much faster and more stable on phones than rebuilding 7,000 complete random drafts.
@@ -301,7 +331,7 @@ function generateBalancedTeams(selectedPlayers, pairCounts, activeTeams, mode = 
     const candidate = bestTeams.map(team => [...team])
     ;[candidate[a][ai], candidate[b][bi]] = [candidate[b][bi], candidate[a][ai]]
 
-    const evaluation = evaluateTeams(candidate, pairCounts, mode)
+    const evaluation = evaluateTeams(candidate, history, mode)
     if (evaluation.objective < bestEvaluation.objective) {
       bestTeams = candidate
       bestEvaluation = evaluation
@@ -605,7 +635,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
   }, [loading, nextRoundNumber, roundNumber, editingSessionId, editSessionId])
 
   const guestIds = useMemo(() => new Set(players.filter(isGuestPlayer).map(p => p.id)), [players])
-  const pairCounts = useMemo(() => buildPairCounts(sessions.filter(s => s.id !== editingSessionId && s.status === 'confirmed'), assignments, guestIds), [sessions, assignments, editingSessionId, guestIds])
+  const teammateHistory = useMemo(() => buildRecentTeammateHistory(sessions.filter(s => s.id !== editingSessionId && s.status === 'confirmed'), assignments, guestIds), [sessions, assignments, editingSessionId, guestIds])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
   const visiblePlayers = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -726,7 +756,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
       })
 
       const lockedTeams = Object.fromEntries(lockedColorKeys.filter(key => draftTeams?.[key]).map(key => [key, draftTeams[key]]))
-      const result = generateBalancedTeams(enriched, pairCounts, activeTeamDefs, generationMode, lockedTeams)
+      const result = generateBalancedTeams(enriched, teammateHistory, activeTeamDefs, generationMode, lockedTeams)
       if (!result) {
         setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
         return
@@ -751,7 +781,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
 
   function recalc(nextTeams) {
     const arrays = activeTeamDefs.map(t => nextTeams[t.key] || [])
-    const result = evaluateTeams(arrays, pairCounts)
+    const result = evaluateTeams(arrays, teammateHistory, generationMode)
     setBalanceScore(result.balanceScore)
   }
 
