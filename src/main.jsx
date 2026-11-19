@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
-import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar } from './TeamBuilder'
+import TeamBuilder, { RatingEditor, TeamHistoryPanel, TEAM_COLORS, overallRating, ratingLevelClass, hasTeamDraft, CoachAvatar, GuestAvatar } from './TeamBuilder'
 import TeamAnalytics from './TeamAnalytics'
 import { isGuestPlayer, isLeaguePlayer, guestLevel, guestDisplayName, guestBadge } from './guestPlayers'
 import { readDraft as readSavedDraft, saveDraft, clearDraft, formatDraftTime } from './adminDrafts'
@@ -818,6 +818,12 @@ function AdminPanel() {
     setStatus('טיוטת המחזור נמחקה. אפשר להתחיל מחזור חדש.')
   }
 
+  const managedPlayers = [...players].sort((a,b) => {
+    const tier = p => isGuestPlayer(p) ? 2 : isCoach(p) ? 1 : 0
+    return tier(a) - tier(b) ||
+      (isGuestPlayer(a) && isGuestPlayer(b) ? guestLevel(a) - guestLevel(b) : 0) ||
+      String(a.name || '').localeCompare(String(b.name || ''), 'he')
+  })
   const activePlayers = players.filter(p => isLeaguePlayer(p) && !isCoach(p))
   useEffect(() => {
     let cancelled = false
@@ -1274,14 +1280,14 @@ function AdminPanel() {
 
             <div className="card manage-list manage-list-v3">
               {players.length > 0 && <div className="manage-list-head"><span>שחקן</span><span>דירוג שחקן</span><span>סטטוס</span><span>פעולות</span></div>}
-              {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : players.map(p => {
+              {players.length === 0 ? <div className="empty">עדיין אין שחקנים.</div> : managedPlayers.map(p => {
                 const playerOverall = overallRating(ratings[p.id])
                 return (
                 <div key={p.id} className={`${!p.is_active && !isGuestPlayer(p) ? 'inactive-row ' : ''}${isCoach(p) ? 'coach-row ' : ''}${isGuestPlayer(p) ? 'guest-player-row ' : ''}${editingPlayerId === p.id ? 'editing-row' : ''}`.trim()}>
                   {editingPlayerId === p.id ? (
                     <div className="player-edit-panel">
                       <div className="player-edit-head">
-                        {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
+                        {isCoach(p) ? <CoachAvatar /> : isGuestPlayer(p) ? <GuestAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
                         <div>
                           <b>עריכת שחקן</b>
                           <small>אפשר לשנות שם פרטי, שם משפחה וגם להחליף תמונה.</small>
@@ -1325,7 +1331,7 @@ function AdminPanel() {
                   ) : (
                     <>
                       <span className="player">
-                        {isCoach(p) ? <CoachAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
+                        {isCoach(p) ? <CoachAvatar /> : isGuestPlayer(p) ? <GuestAvatar /> : <img src={p.photo_url || avatarFallback(p.name)} alt="" />}
                         <span className="player-text"><b>{guestDisplayName(p)}</b>{isCoach(p) && <small>מאמן • משתתף בחלוקה לפי הצורך</small>}{isGuestPlayer(p) && <small className="guest-badge">⚽ {guestBadge(p)} · חלוקת כוחות בלבד</small>}</span>
                       </span>
                       <span className={`player-rating-badge ${ratingLevelClass(isGuestPlayer(p) ? guestLevel(p) : playerOverall)}`}>{isGuestPlayer(p) ? guestLevel(p) : playerOverall ?? '—'}</span>
