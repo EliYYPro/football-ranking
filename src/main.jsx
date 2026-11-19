@@ -722,7 +722,9 @@ function AdminPanel() {
   const [editFirstName, setEditFirstName] = useState('')
   const [editLastName, setEditLastName] = useState('')
   const [editPhoto, setEditPhoto] = useState(null)
+  const [editGuestLevel, setEditGuestLevel] = useState('')
   const [ratings, setRatings] = useState({})
+  const guestSchemaReady = players.some(player => Object.prototype.hasOwnProperty.call(player, 'is_guest'))
   const [ratingPlayer, setRatingPlayer] = useState(null)
   const [historyMode, setHistoryMode] = useState('photos')
   const [personalPlayerId, setPersonalPlayerId] = useState(null)
@@ -1031,6 +1033,7 @@ function AdminPanel() {
     setEditFirstName(parts.first)
     setEditLastName(parts.last)
     setEditPhoto(null)
+    setEditGuestLevel(isGuestPlayer(player) ? String(guestLevel(player)) : '')
     setStatus('')
   }
 
@@ -1039,6 +1042,7 @@ function AdminPanel() {
     setEditFirstName('')
     setEditLastName('')
     setEditPhoto(null)
+    setEditGuestLevel('')
   }
 
   async function savePlayerEdit(player) {
@@ -1052,18 +1056,28 @@ function AdminPanel() {
     try {
       let photoUrl = player.photo_url || null
       if (editPhoto) photoUrl = await uploadImage('player-photos', editPhoto, 'players')
-      const fullName = joinPlayerName(editFirstName, editLastName)
-
-      const { error } = await supabase
-        .from('players')
-        .update({
-          first_name: editFirstName.trim(),
-          last_name: editLastName.trim() || null,
-          name: fullName,
-          team_name: null,
-          photo_url: photoUrl,
-        })
-        .eq('id', player.id)
+      const isGuest = editGuestLevel !== ''
+      if (isGuest && !guestSchemaReady) throw new Error('יש להפעיל תחילה את הגדרת השחקנים המזדמנים במסד הנתונים.')
+      if (isGuest && !isGuestPlayer(player)) {
+        const { count, error: resultsError } = await supabase.from('results')
+          .select('id', {count:'exact',head:true}).eq('player_id',player.id)
+        if (resultsError) throw resultsError
+        if (count > 0) throw new Error('לשחקן הזה כבר יש תוצאות ליגה. ניתן להגדיר כמזדמן רק שחקן ללא תוצאות, כדי לא לשנות את ההיסטוריה.')
+      }
+      const fullName = isGuest ? `שחקן מזדמן ${editGuestLevel}` : joinPlayerName(editFirstName, editLastName)
+      const payload = {
+        first_name: isGuest ? 'שחקן' : editFirstName.trim(),
+        last_name: isGuest ? 'מזדמן' : editLastName.trim() || null,
+        name: fullName,
+        team_name: null,
+        photo_url: photoUrl,
+      }
+      if (guestSchemaReady) {
+        payload.is_guest = isGuest
+        payload.guest_level = isGuest ? Number(editGuestLevel) : null
+        payload.is_active = isGuest ? false : isGuestPlayer(player) ? true : player.is_active
+      }
+      const { error } = await supabase.from('players').update(payload).eq('id', player.id)
 
       if (error) throw error
 
@@ -1290,6 +1304,16 @@ function AdminPanel() {
                           <span>החלפת תמונה (אופציונלי)</span>
                           <input type="file" accept="image/*" onChange={e => setEditPhoto(e.target.files?.[0] || null)} />
                         </label>
+                        {guestSchemaReady && !isCoach(p) && <label className="guest-editor-field">
+                          <span>סוג משתתף</span>
+                          <select value={editGuestLevel} onChange={e => setEditGuestLevel(e.target.value)}>
+                            <option value="">שחקן ליגה רגיל</option>
+                            <option value="7">שחקן מזדמן · רמה 7</option>
+                            <option value="5">שחקן מזדמן · רמה 5</option>
+                            <option value="3">שחקן מזדמן · רמה 3</option>
+                          </select>
+                          <small>שחקן מזדמן מופיע רק בחלוקת הכוחות; לא בטבלה ולא בניקוד.</small>
+                        </label>}
                       </div>
                       <div className="player-edit-actions">
                         <button type="button" className="primary compact" disabled={busy} onClick={() => savePlayerEdit(p)}>
@@ -1307,7 +1331,7 @@ function AdminPanel() {
                       <span className={`player-rating-badge ${ratingLevelClass(isGuestPlayer(p) ? guestLevel(p) : playerOverall)}`}>{isGuestPlayer(p) ? guestLevel(p) : playerOverall ?? '—'}</span>
                       <span>{isCoach(p) ? 'מאמן' : isGuestPlayer(p) ? 'מזדמן' : p.is_active ? 'פעיל' : 'מוסתר'}</span>
                       <span className="manage-actions">
-                        <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתונים</button>
+                        {!isGuestPlayer(p) && <button type="button" className="secondary skill-button" onClick={() => setRatingPlayer(p)}>נתונים</button>}
                         <button type="button" className="secondary" onClick={() => startEditPlayer(p)}>ערוך</button>
                         {!isGuestPlayer(p) && <button type="button" className={p.is_active ? 'danger soft' : 'restore'} onClick={() => togglePlayer(p)}>
                           {p.is_active ? 'הסתר' : 'החזר'}
