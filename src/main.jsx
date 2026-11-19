@@ -7,6 +7,7 @@ import TeamAnalytics from './TeamAnalytics'
 import { isGuestPlayer, isLeaguePlayer, guestLevel, guestDisplayName, guestBadge } from './guestPlayers'
 import { readDraft as readSavedDraft, saveDraft, clearDraft, formatDraftTime } from './adminDrafts'
 import './styles.css'
+import './premium-v2.css'
 
 const avatarFallback = (name = 'Player') =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071426&color=ffffff&size=256&bold=true`
@@ -372,18 +373,24 @@ function PublicPersonalAnalysis() {
 function Home() {
   const { leaderboard, latestRound, latestRoundResults, recentRounds, trendMap, loading, error } = usePublicHomeData()
   const [lightbox, setLightbox] = useState(null)
+  const leadingScore = leaderboard.length ? Math.max(...leaderboard.map(p => Number(p.total_points || 0))) : null
 
   return (
     <Shell>
-      <main className="page">
-        <section className="hero">
+      <main className="page home-page home-v2">
+        <section className="hero home-v2-hero">
           <div className="stadium-lights stadium-lights-left" aria-hidden="true" />
           <div className="stadium-lights stadium-lights-right" aria-hidden="true" />
           <div className="hero-copy">
             <div className="hero-kicker">ליגת הכדורגל</div>
-            <h1>טבלת ליגת<br />ותיקי רמת אפעל</h1>
+            <h1>ותיקי רמת אפעל</h1>
+            <div className="home-hero-subtitle">הליגה שלנו. הקצב שלנו. כל מחזור סיפור חדש.</div>
             <div className="season-ribbon">עונת 2026/27</div>
-            <p>הדירוג מתעדכן אוטומטית אחרי כל מחזור.</p>
+            <p>עונת הכדורגל של ותיקי רמת אפעל • הדירוג והמחזורים מתעדכנים אוטומטית</p>
+            <div className="home-hero-actions">
+              <a className="home-hero-action-primary" href="#league-standings">לצפייה בטבלת הליגה <span aria-hidden="true">←</span></a>
+              <Link className="home-hero-action-secondary" to="/archive">לארכיון המחזורים</Link>
+            </div>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="hero-ball"><span>VRA</span></div>
@@ -391,6 +398,26 @@ function Home() {
           </div>
         </section>
 
+        <section className="home-scoreboard" aria-label="הליגה במספרים">
+          <div className="home-score-tile home-score-blue">
+            <span className="home-score-icon" aria-hidden="true">⚽</span>
+            <div><strong>{leaderboard.length || (loading ? '—' : '0')}</strong><span>שחקנים בדירוג</span></div>
+          </div>
+          <div className="home-score-tile home-score-cyan">
+            <span className="home-score-icon" aria-hidden="true">▣</span>
+            <div><strong>{latestRound ? latestRound.round_number : '—'}</strong><span>מחזור אחרון</span></div>
+          </div>
+          <div className="home-score-tile home-score-gold">
+            <span className="home-score-icon" aria-hidden="true">🏆</span>
+            <div><strong>{leadingScore ?? '—'}</strong><span>ניקוד המוביל</span></div>
+          </div>
+          <div className="home-score-tile home-score-purple">
+            <span className="home-score-icon" aria-hidden="true">♙</span>
+            <div><strong>{latestRound ? latestRoundResults.length : '—'}</strong><span>משתתפים במחזור האחרון</span></div>
+          </div>
+        </section>
+
+        <div className="home-feature-grid">
         {latestRound && (
           <section className="card latest-round-summary" aria-label="סיכום המחזור האחרון">
             <div className="section-header-public">
@@ -416,6 +443,8 @@ function Home() {
           </section>
         )}
 
+        </div>
+
         {error && <div className="notice error-box">{error}</div>}
 
         {loading ? (
@@ -424,11 +453,11 @@ function Home() {
           <section className="card leaderboard"><div className="empty">עדיין אין שחקנים בטבלה.</div></section>
         ) : (
           <>
-            <section className="top-three-section">
+            <section id="league-standings" className="top-three-section">
               <div className="top-three-heading">
                 <div>
-                  <span className="eyebrow">הפודיום</span>
-                  <h2>שלושת המובילים</h2>
+                  <span className="eyebrow">VRA • עונת 2026/27</span>
+                  <h2>הפודיום <span className="home-head-accent">של הליגה</span></h2>
                 </div>
                 <span className="top-three-note">מתעדכן אוטומטית לפי הניקוד</span>
               </div>
@@ -449,7 +478,7 @@ function Home() {
             </section>
 
             {leaderboard.length > 3 && (
-              <section className="card leaderboard rest-table">
+              <section className="card leaderboard rest-table home-v2-standings">
                 <div className="table-head">
                   <span>מקום</span>
                   <span>שחקן</span>
@@ -479,7 +508,7 @@ function Home() {
           </>
         )}
 
-        <section className="home-statistics-section" aria-label="נתונים וסטטיסטיקות">
+        <section className="home-statistics-section home-v2-stats-link" aria-label="נתונים וסטטיסטיקות">
           <Link to="/statistics" className="home-statistics-row">
             <span className="home-statistics-row-icon" aria-hidden="true">📊</span>
             <span className="home-statistics-row-copy"><b>נתונים וסטטיסטיקות</b><small>השתתפות, צמדי שחקנים, חלוקות ונתונים לאורך העונה</small></span>
@@ -488,7 +517,7 @@ function Home() {
         </section>
 
         {recentRounds.length > 0 && (
-          <section className="recent-rounds">
+          <section className="recent-rounds home-v2-rounds">
             <div className="section-header-public">
               <div>
                 <div className="eyebrow">ארכיון</div>
