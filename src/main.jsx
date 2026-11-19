@@ -168,7 +168,7 @@ function PublicArchive() {
 
   function downloadTeamsImage(session, rows) {
     const colors = TEAM_COLORS.filter(t => rows.some(r => r.team_color === t.key))
-    const namesByColor = colors.map(t => ({ name: t.name, players: rows.filter(r => r.team_color === t.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(r => r.player?.name || 'שחקן') }))
+    const namesByColor = colors.map(t => ({ name: t.name, players: rows.filter(r => r.team_color === t.key).sort((a,b) => (a.team_position || 0) - (b.team_position || 0)).map(r => isGuestPlayer(r.player) ? `שחקן מזדמן (רמה ${guestLevel(r.player)})` : r.player?.name || 'שחקן') }))
     const canvas = document.createElement('canvas')
     const width = 1080
     const columns = 2, gap = 24, cardWidth = 496, cardTop = 170
@@ -253,7 +253,7 @@ function PublicArchive() {
                   {canEditTeams && <Link className="secondary tb-share-teams" to={`/admin?editTeamSession=${encodeURIComponent(session.id)}`}>✎ ערוך חלוקת כוחות</Link>}
                   <button type="button" className="secondary tb-share-teams" onClick={() => downloadTeamsImage(session, rows)}>הורד תמונת קבוצות</button>
                   <button type="button" className="secondary tb-share-teams" onClick={() => {
-                    const text = 'חלוקת קבוצות – מחזור ' + (session.round_number || '') + '\\n' + TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => team.name + ': ' + rows.filter(r => r.team_color === team.key).map(r => r.player?.name || 'שחקן').join(', ')).join('\\n')
+                    const text = 'חלוקת קבוצות – מחזור ' + (session.round_number || '') + '\\n' + TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => team.name + ': ' + rows.filter(r => r.team_color === team.key).map(r => isGuestPlayer(r.player) ? `שחקן מזדמן (רמה ${guestLevel(r.player)})` : r.player?.name || 'שחקן').join(', ')).join('\\n')
                     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer')
                   }}>שיתוף החלוקה בוואטסאפ</button><div className="public-team-grid">
                     {TEAM_COLORS.filter(team => rows.some(r => r.team_color === team.key)).map(team => (
