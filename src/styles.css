@@ -1635,7 +1635,7 @@ footer{color:#617d93}
 }
 
 /* Temporary, allocation-only guest players */
-.guest-player-row{background:linear-gradient(90deg,#092137,#0b1b2a)!important;border-inline-start:3px solid #60c3ee!important}
+.guest-player-row{background:linear-gradient(90deg,#092137,#0b1b2a)!important;border-inline-start:0!important;border-right:0!important;border-left:0!important}
 .guest-player-row .tb-player-name b,.guest-player-row .player-text b{color:#e9f8ff}
 .guest-player-row .tb-player-name small,.guest-player-row .guest-badge{color:#7fe1ff!important;font-weight:800}
 .guest-player-row .tb-overall{border-color:#42b4ed!important}
