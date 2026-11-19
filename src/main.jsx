@@ -1198,17 +1198,24 @@ function AdminPanel() {
   }
 
   return (
-    <div className="admin-layout">
-      <aside>
-        <Link to="/" className="brand"><LeagueLogo /></Link>
-        <button className={tab === 'round' ? 'active' : ''} onClick={() => changeTab('round')}>🏆 עדכון מחזור</button>
-        <button className={tab === 'players' ? 'active' : ''} onClick={() => changeTab('players')}>👥 ניהול שחקנים</button>
-        <button className={tab === 'teams' ? 'active' : ''} onClick={() => changeTab('teams')}>⚖️ חלוקת כוחות</button>
-        <button className={tab === 'analytics' ? 'active' : ''} onClick={() => changeTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
-        <button className={tab === 'personal' ? 'active' : ''} onClick={() => changeTab('personal')}>👤 ניתוח אישי</button>
-        <button className={tab === 'history' ? 'active' : ''} onClick={() => changeTab('history')}>🕘 היסטוריה</button>
-        <button className="admin-home-button" onClick={() => { if (tab !== 'teams' || !hasTeamDraft() || window.confirm('יש חלוקת כוחות באמצע עריכה. האם לעזוב את המסך?')) navigate('/') }}>⌂ חזרה למסך הראשי</button>
-        <button onClick={logout}>↪ יציאה</button>
+    <div className="admin-layout admin-theme">
+      <aside className="admin-navigation">
+        <div className="admin-nav-heading">
+          <Link to="/" className="brand" aria-label="חזרה לאתר הליגה"><LeagueLogo /></Link>
+          <span className="admin-mode-label">מצב ניהול <span>ADMIN</span></span>
+        </div>
+        <nav className="admin-nav-tabs" aria-label="ניווט בממשק הניהול">
+          <button type="button" className={tab === 'round' ? 'active' : ''} aria-current={tab === 'round' ? 'page' : undefined} onClick={() => changeTab('round')}>🏆 עדכון מחזור</button>
+          <button type="button" className={tab === 'players' ? 'active' : ''} aria-current={tab === 'players' ? 'page' : undefined} onClick={() => changeTab('players')}>👥 ניהול שחקנים</button>
+          <button type="button" className={tab === 'teams' ? 'active' : ''} aria-current={tab === 'teams' ? 'page' : undefined} onClick={() => changeTab('teams')}>⚖️ חלוקת כוחות</button>
+          <button type="button" className={tab === 'analytics' ? 'active' : ''} aria-current={tab === 'analytics' ? 'page' : undefined} onClick={() => changeTab('analytics')}>📊 נתונים וסטטיסטיקות</button>
+          <button type="button" className={tab === 'personal' ? 'active' : ''} aria-current={tab === 'personal' ? 'page' : undefined} onClick={() => changeTab('personal')}>👤 ניתוח אישי</button>
+          <button type="button" className={tab === 'history' ? 'active' : ''} aria-current={tab === 'history' ? 'page' : undefined} onClick={() => changeTab('history')}>🕘 היסטוריה</button>
+        </nav>
+        <div className="admin-nav-utilities">
+          <button type="button" className="admin-home-button" onClick={() => { if (tab !== 'teams' || !hasTeamDraft() || window.confirm('יש חלוקת כוחות באמצע עריכה. האם לעזוב את המסך?')) navigate('/') }}>⌂ חזרה לאתר</button>
+          <button type="button" className="admin-logout-button" onClick={logout}>↪ יציאה</button>
+        </div>
       </aside>
 
       <main className="admin-main">
