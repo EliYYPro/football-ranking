@@ -1064,7 +1064,7 @@ function AdminPanel() {
         if (resultsError) throw resultsError
         if (count > 0) throw new Error('לשחקן הזה כבר יש תוצאות ליגה. ניתן להגדיר כמזדמן רק שחקן ללא תוצאות, כדי לא לשנות את ההיסטוריה.')
       }
-      const fullName = isGuest ? `שחקן מזדמן ${editGuestLevel}` : joinPlayerName(editFirstName, editLastName)
+      const fullName = isGuest ? 'שחקן מזדמן' : joinPlayerName(editFirstName, editLastName)
       const payload = {
         first_name: isGuest ? 'שחקן' : editFirstName.trim(),
         last_name: isGuest ? 'מזדמן' : editLastName.trim() || null,
