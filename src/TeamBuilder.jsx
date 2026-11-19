@@ -119,14 +119,14 @@ function pairKey(a, b) {
   return [a, b].sort().join('|')
 }
 
-function buildPairCounts(sessions, assignments) {
+function buildPairCounts(sessions, assignments, guestIds = new Set()) {
   const counts = new Map()
   const recentSessions = sessions.slice(0, 12)
   const weights = new Map(recentSessions.map((s,i) => [s.id, i < 3 ? 3 : i < 6 ? 2 : 1]))
   const recentIds = new Set(weights.keys())
   const grouped = new Map()
 
-  assignments.filter(a => recentIds.has(a.session_id)).forEach(a => {
+  assignments.filter(a => recentIds.has(a.session_id) && !guestIds.has(a.player_id)).forEach(a => {
     const key = `${a.session_id}:${a.team_color}`
     if (!grouped.has(key)) grouped.set(key, [])
     grouped.get(key).push(a.player_id)
@@ -459,7 +459,7 @@ export function TeamHistoryPanel({ players = [], onEdit = null }) {
                     <b>{team.name}</b>
                     {rows.filter(r => r.team_color === team.key).sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).map(row => {
                       const player = players.find(p => p.id === row.player_id)
-                      return <span key={row.player_id}>{player ? fullName(player) : 'שחקן'}</span>
+                      return <span key={row.player_id}>{player ? isGuestPlayer(player) ? `שחקן מזדמן · רמה ${guestLevel(player)}` : fullName(player) : 'שחקן'}</span>
                     })}
                   </div>
                 ))}
@@ -592,7 +592,8 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     }
   }, [loading, nextRoundNumber, roundNumber, editingSessionId, editSessionId])
 
-  const pairCounts = useMemo(() => buildPairCounts(sessions.filter(s => s.id !== editingSessionId), assignments), [sessions, assignments, editingSessionId])
+  const guestIds = useMemo(() => new Set(players.filter(isGuestPlayer).map(p => p.id)), [players])
+  const pairCounts = useMemo(() => buildPairCounts(sessions.filter(s => s.id !== editingSessionId && s.status === 'confirmed'), assignments, guestIds), [sessions, assignments, editingSessionId, guestIds])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
   const visiblePlayers = useMemo(() => {
     const q = search.trim().toLowerCase()
