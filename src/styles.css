@@ -1633,3 +1633,12 @@ footer{color:#617d93}
   .analytics-page > .analytics-participation-card,
   .analytics-page > .analytics-color-usage{margin-top:14px}
 }
+
+/* Temporary, allocation-only guest players */
+.guest-player-row{background:linear-gradient(90deg,#092137,#0b1b2a)!important;border-inline-start:3px solid #60c3ee!important}
+.guest-player-row .tb-player-name b,.guest-player-row .player-text b{color:#e9f8ff}
+.guest-player-row .tb-player-name small,.guest-player-row .guest-badge{color:#7fe1ff!important;font-weight:800}
+.guest-player-row .tb-overall{border-color:#42b4ed!important}
+.guest-editor-field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.guest-editor-field select{width:100%;min-height:44px}
+.guest-editor-field small,.guest-archive-note{color:#77cfe8;font-size:12px;line-height:1.5}
