@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
 import { TEAM_COLORS, fullName } from './TeamBuilder'
+import { isGuestPlayer } from './guestPlayers'
 
 const avatarFallback = (name = 'Player') =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=071426&color=ffffff&size=128&bold=true`
@@ -89,7 +90,7 @@ function buildAnalytics(sessions, assignments, players) {
 export default function TeamAnalytics({ players = [], publicView = false, personalOnly = false, initialPlayerId = null, onOpenPersonal = null }) {
   const navigate = useNavigate()
   const [publicPlayers, setPublicPlayers] = useState([])
-  const visiblePlayers = publicView ? publicPlayers : players
+  const visiblePlayers = (publicView ? publicPlayers : players).filter(p => !isGuestPlayer(p))
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
   const [roundAppearances, setRoundAppearances] = useState({})
@@ -130,7 +131,7 @@ export default function TeamAnalytics({ players = [], publicView = false, person
           const rows = data || []
           setSessions([...new Map(rows.map(row => [row.session_id, { id: row.session_id, round_number: row.round_number, session_date: row.session_date, selected_count: row.selected_count, preferred_team_size: row.preferred_team_size, team_count: row.team_count, balance_score: row.balance_score }])).values()].sort((a,b) => (b.round_number || 0)-(a.round_number || 0)))
           setAssignments(rows.map(row => ({ session_id: row.session_id, player_id: row.player_id, team_color: row.team_color, team_position: row.team_position })))
-          setPublicPlayers([...new Map(rows.map(row => [row.player_id, { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url }])).values()])
+          setPublicPlayers([...new Map(rows.map(row => [row.player_id, { id: row.player_id, name: row.player_name, photo_url: row.player_photo_url, is_guest: row.is_guest || false, guest_level: row.guest_level ?? null }])).values()])
         }
         setLoading(false)
         return
