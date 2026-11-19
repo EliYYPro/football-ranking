@@ -5,6 +5,17 @@ import { readDraft as readSavedDraft, saveDraft, clearDraft, hasMeaningfulTeamDr
 
 export function CoachAvatar() { return <span className="coach-avatar" role="img" aria-label="מאמן — משרוקית"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13H4a2 2 0 0 0-2 2v5h9"/><path d="M12 10h7l3 4a9 9 0 1 1-10-1z"/><circle cx="21" cy="21" r="3"/><circle cx="15" cy="9" r="2"/></svg></span> }
 
+export function GuestAvatar() {
+  return <span className="guest-avatar" role="img" aria-label="שחקן מזדמן — כדורגל עם סימן פלוס">
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="14" cy="17" r="10.5"/>
+      <path d="M14 11.3l4.5 3.2-1.7 5.2h-5.6l-1.7-5.2zM14 11.3V6.5M9.5 14.5l-4.6-1.1M11.2 19.7l-3.1 3.5M16.8 19.7l3.2 3.5M18.5 14.5l4.6-1.1"/>
+      <circle cx="24.5" cy="7.5" r="6" fill="#11334a" strokeWidth="1.5"/>
+      <path d="M24.5 4.7v5.6M21.7 7.5h5.6" strokeWidth="2"/>
+    </svg>
+  </span>
+}
+
 export const TEAM_COLORS = [
   { key: 'pink', name: 'ורוד' },
   { key: 'blue', name: 'כחול' },
@@ -345,7 +356,7 @@ export function RatingEditor({ player, initialRating, onClose, onSaved = () => {
         </div>
 
         <div className="rating-player-head">
-          {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
+          {isCoach(player) ? <CoachAvatar /> : isGuestPlayer(player) ? <GuestAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
           <div><b>{fullName(player)}</b><small>רמה כללית מחושבת: {overall ?? '—'}</small></div>
         </div>
 
@@ -483,11 +494,12 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     const saved = readDraft()
     return saved.editingSessionId && !editSessionId ? {} : saved
   })
-  const activePlayers = useMemo(() => players.filter(p => p.is_active || isGuestPlayer(p)).sort((a,b) =>
-    Number(isCoach(a)) - Number(isCoach(b)) ||
-    Number(isGuestPlayer(a)) - Number(isGuestPlayer(b)) ||
-    (guestLevel(b) || 0) - (guestLevel(a) || 0) ||
-    String(a.name).localeCompare(String(b.name),'he')), [players])
+  const activePlayers = useMemo(() => players.filter(p => p.is_active || isGuestPlayer(p)).sort((a,b) => {
+    const tier = p => isGuestPlayer(p) ? 2 : isCoach(p) ? 1 : 0
+    return tier(a) - tier(b) ||
+      (isGuestPlayer(a) && isGuestPlayer(b) ? guestLevel(a) - guestLevel(b) : 0) ||
+      String(a.name).localeCompare(String(b.name),'he')
+  }), [players])
   const [ratings, setRatings] = useState({})
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
@@ -1008,7 +1020,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
             <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''} ${isCoach(player) ? 'coach-row' : ''} ${isGuestPlayer(player) ? 'guest-player-row' : ''}`} key={player.id} onClick={() => togglePlayer(player.id)}>
               <label className="tb-check" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
               <span className={`tb-selection-order ${selectionIndex ? 'visible' : ''}`}>{selectionIndex || ''}</span>
-              {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
+              {isCoach(player) ? <CoachAvatar /> : isGuestPlayer(player) ? <GuestAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
               <div className="tb-player-name"><b>{guestDisplayName(player)}</b><small>{isGuestPlayer(player) ? `⚽ ${guestBadge(player)} · לחלוקה בלבד` : isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
 
@@ -1095,7 +1107,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
                   <div className="tb-team-players">
                     {teamPlayers.map(player => (
                       <div className="tb-team-player" draggable onDragStart={e => e.dataTransfer.setData('text/player-id', player.id)} key={player.id}>
-                        {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
+                        {isCoach(player) ? <CoachAvatar /> : isGuestPlayer(player) ? <GuestAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
                         <span><b>{fullName(player)}</b><small>{player.overall}</small></span>
                         <select aria-label={`העבר את ${fullName(player)} לקבוצה`} value={team.key} onChange={e => movePlayer(player.id, e.target.value)}>
                           {activeTeamDefs.map(option => <option key={option.key} value={option.key}>{option.name}</option>)}
