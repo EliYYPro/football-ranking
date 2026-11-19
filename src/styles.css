@@ -1642,3 +1642,13 @@ footer{color:#617d93}
 .guest-editor-field{display:flex;flex-direction:column;gap:8px;min-width:0}
 .guest-editor-field select{width:100%;min-height:44px}
 .guest-editor-field small,.guest-archive-note{color:#77cfe8;font-size:12px;line-height:1.5}
+
+/* Temporary footballers: a dedicated soccer-ball plus avatar, sized like the coach badge */
+.guest-avatar{
+  width:44px;height:44px;display:inline-flex;flex:none;align-items:center;
+  justify-content:center;border-radius:12px;background:#102f40;
+  border:1px solid #4fc5e5;color:#84e5fb;vertical-align:middle;
+}
+.guest-avatar svg{width:29px;height:29px}
+.tb-player-row .guest-avatar,.tb-team-player .guest-avatar{width:44px;height:44px}
+.manage-list-v3 .guest-avatar,.player-edit-head .guest-avatar{width:44px;height:44px}
