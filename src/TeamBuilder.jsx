@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './supabase'
+import { isGuestPlayer, guestLevel, guestSkillProfile, guestDisplayName, guestBadge } from './guestPlayers'
 import { readDraft as readSavedDraft, saveDraft, clearDraft, hasMeaningfulTeamDraft, formatDraftTime } from './adminDrafts'
 
 export function CoachAvatar() { return <span className="coach-avatar" role="img" aria-label="מאמן — משרוקית"><svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 13H4a2 2 0 0 0-2 2v5h9"/><path d="M12 10h7l3 4a9 9 0 1 1-10-1z"/><circle cx="21" cy="21" r="3"/><circle cx="15" cy="9" r="2"/></svg></span> }
@@ -482,7 +483,11 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     const saved = readDraft()
     return saved.editingSessionId && !editSessionId ? {} : saved
   })
-  const activePlayers = useMemo(() => players.filter(p => p.is_active).sort((a,b) => Number(isCoach(a)) - Number(isCoach(b)) || String(a.name).localeCompare(String(b.name),'he')), [players])
+  const activePlayers = useMemo(() => players.filter(p => p.is_active || isGuestPlayer(p)).sort((a,b) =>
+    Number(isCoach(a)) - Number(isCoach(b)) ||
+    Number(isGuestPlayer(a)) - Number(isGuestPlayer(b)) ||
+    (guestLevel(b) || 0) - (guestLevel(a) || 0) ||
+    String(a.name).localeCompare(String(b.name),'he')), [players])
   const [ratings, setRatings] = useState({})
   const [sessions, setSessions] = useState([])
   const [assignments, setAssignments] = useState([])
@@ -587,7 +592,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     }
   }, [loading, nextRoundNumber, roundNumber, editingSessionId, editSessionId])
 
-  const pairCounts = useMemo(() => buildPairCounts(sessions, assignments), [sessions, assignments])
+  const pairCounts = useMemo(() => buildPairCounts(sessions.filter(s => s.id !== editingSessionId), assignments), [sessions, assignments, editingSessionId])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
   const visiblePlayers = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -672,7 +677,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
       const target = (vacantTeamRef.current && activeTeamDefs.find(t => t.key === vacantTeamRef.current))
         || [...activeTeamDefs].sort((a,b) => next[a.key].length - next[b.key].length)[0]
       if (!target) return
-      const safeRating = ratingForGeneration(ratings[id])
+      const safeRating = guestSkillProfile(player) || ratingForGeneration(ratings[id])
       next[target.key].push({ ...player, rating: safeRating, overall: overallRating(safeRating) ?? 5 })
       vacantTeamRef.current = null
       setMessage(`${fullName(player)} נוסף לקבוצה ${target.name}. שאר ההרכבים נשמרו.`)
@@ -701,9 +706,9 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
 
       // Missing/partial ratings should never make the button look broken.
       // For balancing only, unrated players receive a neutral temporary rating of 5.
-      const unrated = selectedPlayers.filter(p => !ratingComplete(ratings[p.id]))
+      const unrated = selectedPlayers.filter(p => !isGuestPlayer(p) && !ratingComplete(ratings[p.id]))
       const enriched = selectedPlayers.map(p => {
-        const safeRating = ratingForGeneration(ratings[p.id])
+        const safeRating = guestSkillProfile(p) || ratingForGeneration(ratings[p.id])
         return { ...p, rating: safeRating, overall: overallRating(safeRating) ?? 5 }
       })
 
@@ -948,7 +953,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     rows.sort((a, b) => (a.team_position || 0) - (b.team_position || 0)).forEach(row => {
       const player = activePlayers.find(p => p.id === row.player_id)
       if (!player || !nextTeams[row.team_color]) return
-      const safeRating = ratingForGeneration(ratings[player.id])
+      const safeRating = guestSkillProfile(player) || ratingForGeneration(ratings[player.id])
       nextTeams[row.team_color].push({ ...player, rating: safeRating, overall: overallRating(safeRating) ?? 5 })
     })
     setDraftTeams(nextTeams)
@@ -995,15 +1000,15 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
         <div className="tb-attendance-toolbar"><span className="tb-attendance-toolbar-title">הצג שחקנים</span><div className="tb-filter-buttons tb-attendance-filters">{[['all','כולם'],['selected','סומנו'],['unselected','לא סומנו']].map(([key,label]) => <button type="button" key={key} className={attendanceFilter === key ? 'active' : ''} onClick={() => setAttendanceFilter(key)}>{label}{key === 'selected' ? ` (${selectedIds.length})` : ''}</button>)}</div></div>
         {loading ? <div className="empty">טוען נתונים…</div> : visiblePlayers.map(player => {
           const rating = ratings[player.id]
-          const overall = overallRating(rating)
+          const overall = isGuestPlayer(player) ? guestLevel(player) : overallRating(rating)
           const position = POSITION_OPTIONS.find(([value]) => value === rating?.preferred_position)?.[1]
           const selectionIndex = selectedIds.indexOf(player.id) + 1
           return (
-            <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''} ${isCoach(player) ? 'coach-row' : ''}`} key={player.id} onClick={() => togglePlayer(player.id)}>
+            <div className={`tb-player-row ${selectedIds.includes(player.id) ? 'selected' : ''} ${isCoach(player) ? 'coach-row' : ''} ${isGuestPlayer(player) ? 'guest-player-row' : ''}`} key={player.id} onClick={() => togglePlayer(player.id)}>
               <label className="tb-check" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedIds.includes(player.id)} onChange={() => togglePlayer(player.id)} /><span /></label>
               <span className={`tb-selection-order ${selectionIndex ? 'visible' : ''}`}>{selectionIndex || ''}</span>
               {isCoach(player) ? <CoachAvatar /> : <img src={player.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName(player))}&background=071426&color=ffffff`} alt="" />}
-              <div className="tb-player-name"><b>{fullName(player)}</b><small>{isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
+              <div className="tb-player-name"><b>{guestDisplayName(player)}</b><small>{isGuestPlayer(player) ? `⚽ ${guestBadge(player)} · לחלוקה בלבד` : isCoach(player) ? 'מאמן • לפי הצורך' : position || 'ללא עמדה'}</small></div>
               <div className={`tb-overall ${ratingLevelClass(overall)}`}><b>{overall ?? '—'}</b><small>{overall ? 'רמה כללית' : 'חסר דירוג'}</small></div>
 
             </div>
