@@ -409,7 +409,7 @@ function Home() {
           </div>
           <div className="home-score-tile home-score-gold">
             <span className="home-score-icon" aria-hidden="true">🏆</span>
-            <div><strong>{leadingScore ?? '—'}</strong><span>ניקוד המוביל</span></div>
+            <div><strong>{leadingScore ?? '—'}</strong><span>ניקוד המוביל בטבלה</span></div>
           </div>
           <div className="home-score-tile home-score-purple">
             <span className="home-score-icon" aria-hidden="true">♙</span>
@@ -423,9 +423,13 @@ function Home() {
             <div className="section-header-public">
               <div><span className="eyebrow">סיכום המחזור האחרון</span><h2>מחזור {latestRound.round_number} • {formatDate(latestRound.round_date)}</h2></div>
             </div>
-            <p><b>{latestRound.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : 'אלופי המחזור'}</b> · {latestRoundResults.length} משתתפים · {latestRoundResults.filter(r => r.won).length} מנצחים · {latestRoundResults.reduce((n,r) => n + Number(r.points || 0),0)} נקודות חולקו</p>
+            <p><b>{latestRound.winner_caption === 'תיקו בין הקבוצות ללא אלופי מחזור' ? 'תיקו בין הקבוצות' : 'אלופי המחזור'}</b> · {latestRoundResults.length} משתתפים · {latestRoundResults.filter(r => r.won).length} מנצחים · {(() => {
+              const winnerPoints = [...new Set(latestRoundResults.filter(r => r.won).map(r => Number(r.points || 0)))]
+              if (!winnerPoints.length) return 'ללא ניקוד למנצחים'
+              if (winnerPoints.length === 1) return `${winnerPoints[0]} ${winnerPoints[0] === 1 ? 'נקודה' : 'נקודות'} לכל מנצח`
+              return `ניקוד למנצח: ${winnerPoints.sort((a,b) => a-b).join('–')} נקודות`
+            })()}</p>
             {latestRoundResults.some(r => r.won) && <p><b>המנצחים:</b> {latestRoundResults.filter(r=>r.won).map(r=>leaderboard.find(p=>p.id===r.player_id)?.name).filter(Boolean).join(' · ')}</p>}
-            {Object.values(trendMap).some(t => t === 'up' || t === 'down') && <p><b>תנועות בטבלה:</b> {leaderboard.filter(p => trendMap[p.id] === 'up' || trendMap[p.id] === 'down').slice(0,8).map(p => `${p.name} ${trendMap[p.id] === 'up' ? '▲' : '▼'}`).join(' · ')}</p>}
           </section>
         )}
 
@@ -711,7 +715,11 @@ const ROUND_DRAFT_KEY = 'football-round-draft-v1'
 const readRoundDraft = () => readSavedDraft(ROUND_DRAFT_KEY)
 function AdminPanel() {
   const navigate = useNavigate()
-  const [initialRoundDraft] = useState(readRoundDraft)
+  const [initialRoundDraft] = useState(() => {
+    const draft = readRoundDraft()
+    // Previously edited historical rounds may only be reopened through the archive.
+    return draft?.editingRoundId ? null : draft
+  })
   const [roundDraftActive, setRoundDraftActive] = useState(Boolean(initialRoundDraft))
   const [roundDraftSavedAt, setRoundDraftSavedAt] = useState(initialRoundDraft?.updatedAt || null)
   const [editingRoundId, setEditingRoundId] = useState(initialRoundDraft?.editingRoundId || null)
@@ -811,7 +819,27 @@ function AdminPanel() {
   }
 
   useEffect(() => { loadData() }, [])
-  useEffect(() => { if (!roundDraftActive) setRoundNumber(nextRound) }, [nextRound, roundDraftActive])
+  useEffect(() => {
+    if (loading || editingRoundId) return
+    if (Number(roundNumber) < nextRound) {
+      // A locally restored draft must not unlock a round already saved.
+      clearDraft(ROUND_DRAFT_KEY)
+      setRoundDraftActive(false)
+      setRoundDraftSavedAt(null)
+      setRoundNumber(nextRound)
+      setRoundDate(new Date().toISOString().slice(0, 10))
+      setWins({}); setAttended({}); setRedCards({})
+      setRoundPoints(null); setIsDraw(false); setWinnerFile(null)
+      setWinnerPhotoPosition(16)
+      setStatus(`מחזורים שמורים נעולים במסך העדכון. מחזור חדש מתחיל ב־${nextRound}; עריכת מחזור קודם מתבצעת בארכיון בלבד.`)
+    }
+  }, [loading, nextRound, roundNumber, editingRoundId])
+
+  useEffect(() => {
+    if (!roundDraftActive && !editingRoundId && !loading && Number(roundNumber) < nextRound) {
+      setRoundNumber(nextRound)
+    }
+  }, [nextRound, roundDraftActive, editingRoundId, loading, roundNumber])
 
   useEffect(() => {
     if (!roundDraftActive) return
@@ -827,7 +855,11 @@ function AdminPanel() {
     setRoundDraftSavedAt(null)
   }
   function switchRoundNumber(next) {
-    const number = Math.max(1, Number(next) || 1)
+    if (editingRoundId) {
+      setStatus('בעריכת מחזור שמור אי אפשר לשנות את מספר המחזור. חזור לארכיון או בחר מחזור חדש.')
+      return
+    }
+    const number = Math.max(nextRound, Number(next) || nextRound)
     if (number === Number(roundNumber)) return
     if (roundDraftActive && !window.confirm('מעבר למחזור אחר יאפס את בחירת המשתתפים והמנצחים בטיוטה. להמשיך?')) return
     setRoundNumber(number)
@@ -912,6 +944,9 @@ function AdminPanel() {
     try {
       const number = Number(roundNumber)
       if (!number || number < 1) throw new Error('מספר המחזור אינו תקין.')
+      if (!editingRoundId && number < nextRound) {
+        throw new Error(`מחזור ${number} כבר נשמר. לעריכת מחזורים קודמים יש להיכנס לארכיון בלבד.`)
+      }
 
       const { data: allocationSession, error: allocationLookupError } = await supabase.from('training_sessions').select('id').eq('round_number', number).eq('status', 'confirmed').maybeSingle()
       if (allocationLookupError) throw allocationLookupError
@@ -937,6 +972,13 @@ function AdminPanel() {
         .eq('round_number', number)
         .maybeSingle()
       if (findErr) throw findErr
+      if (editingRoundId) {
+        if (!existingRound || existingRound.id !== editingRoundId) {
+          throw new Error('ניתן לערוך מחזור שמור רק באמצעות פתיחתו מהארכיון.')
+        }
+      } else if (existingRound) {
+        throw new Error(`מחזור ${number} כבר שמור. פתח אותו מהארכיון כדי לערוך את התוצאות.`)
+      }
 
       let winnerPhotoUrl = existingRound?.winner_photo_url || null
       if (winnerFile) winnerPhotoUrl = await uploadImage('weekly-winners', winnerFile, `round-${number}`)
@@ -1175,9 +1217,9 @@ function AdminPanel() {
         {tab === 'round' && (
           <section>
             <div className="section-title">
-              <div><span className="eyebrow">ADMIN</span><h1>עדכון תוצאות מחזור</h1></div>
+              <div><span className="eyebrow">ADMIN</span><h1>עדכון תוצאות מחזור</h1>{editingRoundId && <p className="admin-round-lock-note">🔒 עריכת מחזור שמור מהארכיון • מספר המחזור נעול</p>}</div>
               <div className="round-fields">
-                <label className="round-stepper-field">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מחזור"><button type="button" aria-label="מחזור קודם" disabled={Number(roundNumber) <= 1} onClick={() => switchRoundNumber((Number(roundNumber) || 1) - 1)}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" onClick={() => switchRoundNumber((Number(roundNumber) || 0) + 1)}>›</button></div></label>
+                <label className="round-stepper-field">מספר מחזור<div className="tb-round-stepper" role="group" aria-label="בחירת מחזור"><button type="button" aria-label="מחזור קודם" disabled={loading || Boolean(editingRoundId) || Number(roundNumber) <= nextRound} onClick={() => switchRoundNumber((Number(roundNumber) || nextRound) - 1)}>‹</button><span aria-live="polite">{roundNumber}</span><button type="button" aria-label="מחזור הבא" disabled={loading || Boolean(editingRoundId)} onClick={() => switchRoundNumber((Number(roundNumber) || nextRound) + 1)}>›</button></div></label>
                 <label>תאריך<input type="date" value={roundDate} onChange={e => { startRoundDraft(); setRoundDate(e.target.value) }} /></label>
               </div>
             </div>
