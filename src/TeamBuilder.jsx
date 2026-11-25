@@ -254,7 +254,21 @@ function capacitiesFor(count, teamCount) {
   return Array.from({ length: safeTeamCount }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'balanced', lockedTeams = {}) {
+
+/* One-off fixture request: round 10 only. No change to later rounds. */
+const ROUND_10_PAIR_NAMES = ['אלי שרם', 'אריק נחום']
+function roundTenPair(players, roundNumber) {
+  if (Number(roundNumber) !== 10) return null
+  const normalized = name => String(name || '').normalize('NFKC').replace(/\s+/g, ' ').trim()
+  const matches = ROUND_10_PAIR_NAMES.map(name => players.filter(p => normalized(fullName(p)) === name))
+  return matches.every(rows => rows.length === 1) ? matches.map(rows => rows[0].id) : null
+}
+function pairIsTogether(teams, pairIds) {
+  if (!pairIds) return true
+  return teams.some(team => pairIds.every(id => team.some(p => p.id === id)))
+}
+
+function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'balanced', lockedTeams = {}, requiredPairIds = null) {
   if (!Array.isArray(selectedPlayers) || !selectedPlayers.length) return null
   if (!Array.isArray(activeTeams) || activeTeams.length < 2) return null
 
@@ -267,7 +281,48 @@ function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'ba
   // slightly lower target average so the numerical advantage is compensated by ability.
   const teams = activeTeams.map(t => [...(lockedTeams[t.key] || [])])
   const lockedIds = new Set(Object.values(lockedTeams).flat().map(p => p.id))
-  const ordered = selectedPlayers.filter(p => !lockedIds.has(p.id)).sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
+  const constrainedPair = requiredPairIds?.length === 2 && requiredPairIds.every(id => selectedPlayers.some(p => p.id === id))
+    ? requiredPairIds : null
+  const pairMembers = constrainedPair ? constrainedPair.map(id => selectedPlayers.find(p => p.id === id)) : []
+  if (constrainedPair) {
+    const existingGroups = teams.map((team, index) => ({
+      index, count: team.filter(p => constrainedPair.includes(p.id)).length
+    }))
+    const separate = existingGroups.filter(group => group.count > 0)
+    if (separate.length > 1) {
+      throw new Error('אלי שרם ואריק נחום נמצאים בקבוצות נעולות שונות. יש לפתוח את הנעילה וליצור חלוקה מחדש.')
+    }
+    const initialIndex = separate.length ? separate[0].index : -1
+    if (initialIndex >= 0) {
+      const missingMembers = pairMembers.filter(p => !teams[initialIndex].some(member => member.id === p.id))
+      if (teams[initialIndex].length + missingMembers.length > capacities[initialIndex]) {
+        throw new Error('אין מספיק מקום בקבוצה הנעולה כדי לשבץ יחד את אלי שרם ואריק נחום. יש לפתוח את הנעילה.')
+      }
+      teams[initialIndex].push(...missingMembers)
+    } else {
+      // Seed the two players as one inseparable unit before the normal balancing pass.
+      // Choose the best available destination without altering any pre-locked team.
+      const candidateIndices = teams.map((team, index) => index).filter(index =>
+        !Object.prototype.hasOwnProperty.call(lockedTeams, activeTeams[index].key) &&
+        teams[index].length + 2 <= capacities[index]
+      )
+      if (!candidateIndices.length) {
+        throw new Error('אין קבוצה פנויה לשיבוץ המשותף של אלי שרם ואריק נחום. פתח נעילת קבוצה או שנה את הכמות.')
+      }
+      const best = candidateIndices.map(index => {
+        const combined = [...teams[index], ...pairMembers]
+        const target = leagueAverage - (capacities[index] - averageCapacity) * 0.72
+        return {
+          index,
+          score: Math.abs(average(combined.map(p => Number(p.overall || 5))) - target) * 2.2 +
+            reunionPenalty(combined, history).total * (mode === 'variety' ? 2 : mode === 'skill' ? .08 : .55)
+        }
+      }).sort((a,b) => a.score - b.score)[0]
+      teams[best.index].push(...pairMembers)
+    }
+  }
+  const seededIds = new Set([...lockedIds, ...(constrainedPair || [])])
+  const ordered = selectedPlayers.filter(p => !seededIds.has(p.id)).sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
 
   ordered.forEach(player => {
     let bestIndex = -1
@@ -328,6 +383,8 @@ function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'ba
 
     const ai = Math.floor(Math.random() * bestTeams[a].length)
     const bi = Math.floor(Math.random() * bestTeams[b].length)
+    // Hard constraint for this single fixture: neither member may be swapped out.
+    if (constrainedPair && (constrainedPair.includes(bestTeams[a][ai].id) || constrainedPair.includes(bestTeams[b][bi].id))) continue
     const candidate = bestTeams.map(team => [...team])
     ;[candidate[a][ai], candidate[b][bi]] = [candidate[b][bi], candidate[a][ai]]
 
@@ -338,6 +395,7 @@ function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'ba
     }
   }
 
+  if (constrainedPair && !pairIsTogether(bestTeams, constrainedPair)) throw new Error('שגיאה באילוץ הזוג למחזור 10.')
   return { teams: bestTeams, evaluation: bestEvaluation }
 }
 
@@ -637,6 +695,8 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
   const guestIds = useMemo(() => new Set(players.filter(isGuestPlayer).map(p => p.id)), [players])
   const teammateHistory = useMemo(() => buildRecentTeammateHistory(sessions.filter(s => s.id !== editingSessionId && s.status === 'confirmed'), assignments, guestIds), [sessions, assignments, editingSessionId, guestIds])
   const selectedPlayers = useMemo(() => selectedIds.map(id => activePlayers.find(p => p.id === id)).filter(Boolean), [selectedIds, activePlayers])
+  const mandatoryRoundPair = useMemo(() => roundTenPair(activePlayers, roundNumber), [activePlayers, roundNumber])
+  const bothPairMembersSelected = Boolean(mandatoryRoundPair?.every(id => selectedIds.includes(id)))
   const visiblePlayers = useMemo(() => {
     const q = search.trim().toLowerCase()
     return activePlayers.filter(p => (!q || fullName(p).toLowerCase().includes(q)) && (attendanceFilter === 'all' || (attendanceFilter === 'selected' ? selectedIds.includes(p.id) : !selectedIds.includes(p.id))))
@@ -742,6 +802,10 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
         return
       }
 
+      if (Number(roundNumber) === 10 && (!mandatoryRoundPair || !bothPairMembersSelected)) {
+        setMessage('מחזור 10: כדי ליצור חלוקה, סמן את אלי שרם ואת אריק נחום. הם ישובצו יחד בכל מצב חלוקה.')
+        return
+      }
       if (selectedPlayers.length < teamCount) {
         setMessage(`שגיאה: צריך לבחור לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`)
         return
@@ -756,7 +820,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
       })
 
       const lockedTeams = Object.fromEntries(lockedColorKeys.filter(key => draftTeams?.[key]).map(key => [key, draftTeams[key]]))
-      const result = generateBalancedTeams(enriched, teammateHistory, activeTeamDefs, generationMode, lockedTeams)
+      const result = generateBalancedTeams(enriched, teammateHistory, activeTeamDefs, generationMode, lockedTeams, mandatoryRoundPair)
       if (!result) {
         setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
         return
@@ -787,6 +851,13 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
 
   function movePlayer(playerId, targetColor) {
     if (!draftTeams) return
+    if (Number(roundNumber) === 10 && bothPairMembersSelected && mandatoryRoundPair.includes(playerId)) {
+      const currentTeam = activeTeamDefs.find(team => (draftTeams[team.key] || []).some(p => p.id === playerId))
+      if (currentTeam && currentTeam.key !== targetColor) {
+        setMessage('במחזור 10 אלי שרם ואריק נחום חייבים להישאר יחד. צור חלוקה אחרת כדי לשנות את מיקום הקבוצה.')
+        return
+      }
+    }
     if (lockedColorKeys.includes(targetColor) || activeTeamDefs.some(t => lockedColorKeys.includes(t.key) && (draftTeams[t.key] || []).some(p => p.id === playerId))) { setMessage('הקבוצה נעולה. פתח את הנעילה לפני העברת שחקנים.'); return }
     pushUndo()
     const next = Object.fromEntries(activeTeamDefs.map(t => [t.key, [...(draftTeams[t.key] || [])]]))
@@ -812,6 +883,12 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     const ids = activeTeamDefs.flatMap(team => (draftTeams[team.key] || []).map(p => p.id))
     if (ids.length !== selectedIds.length || new Set(ids).size !== ids.length || selectedIds.some(id => !ids.includes(id))) return 'חסרים שחקנים או שיש שחקן שמופיע ביותר מקבוצה אחת.'
     if (activeTeamDefs.some(team => !draftTeams[team.key]?.length)) return 'אחת הקבוצות ריקה.'
+    if (Number(roundNumber) === 10) {
+      if (!mandatoryRoundPair || !bothPairMembersSelected) return 'במחזור 10 חובה לבחור את אלי שרם ואת אריק נחום.'
+      if (!pairIsTogether(activeTeamDefs.map(team => draftTeams[team.key] || []), mandatoryRoundPair)) {
+        return 'במחזור 10 אלי שרם ואריק נחום חייבים להיות באותה קבוצה.'
+      }
+    }
     return ''
   }
   function reportSaveError(error, prefix = 'שמירת החלוקה נכשלה') {
@@ -1034,6 +1111,10 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
         </div>
       </div>
 
+      {Number(roundNumber) === 10 && <div className="tb-round10-pair-note" role="status">
+        <b>🔗 מחזור 10 — ציוות קבוע חד־פעמי</b>
+        <span>אלי שרם ואריק נחום ישחקו באותה קבוצה בכל מצב חלוקה. יש לסמן את שניהם בנוכחות.</span>
+      </div>}
       <div className="card tb-attendance">
         <div className="tb-list-head">
           <div><span className="eyebrow">שלב 2</span><h2>מי הגיע לאימון?</h2></div>
