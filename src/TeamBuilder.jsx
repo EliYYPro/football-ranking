@@ -803,10 +803,6 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
         return
       }
 
-      if (Number(roundNumber) === 10 && (!mandatoryRoundPair || !bothPairMembersSelected)) {
-        setMessage('מחזור 10: כדי ליצור חלוקה, סמן את אלי שרם ואת אריק נחום. הם ישובצו יחד בכל מצב חלוקה.')
-        return
-      }
       if (selectedPlayers.length < teamCount) {
         setMessage(`שגיאה: צריך לבחור לפחות ${teamCount} שחקנים כדי ליצור ${teamCount} קבוצות.`)
         return
@@ -821,7 +817,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
       })
 
       const lockedTeams = Object.fromEntries(lockedColorKeys.filter(key => draftTeams?.[key]).map(key => [key, draftTeams[key]]))
-      const result = generateBalancedTeams(enriched, teammateHistory, activeTeamDefs, generationMode, lockedTeams, mandatoryRoundPair)
+      const result = generateBalancedTeams(enriched, teammateHistory, activeTeamDefs, generationMode, lockedTeams, bothPairMembersSelected ? mandatoryRoundPair : null)
       if (!result) {
         setMessage('שגיאה: לא הצלחנו ליצור חלוקה. נסה שוב.')
         return
@@ -884,11 +880,9 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
     const ids = activeTeamDefs.flatMap(team => (draftTeams[team.key] || []).map(p => p.id))
     if (ids.length !== selectedIds.length || new Set(ids).size !== ids.length || selectedIds.some(id => !ids.includes(id))) return 'חסרים שחקנים או שיש שחקן שמופיע ביותר מקבוצה אחת.'
     if (activeTeamDefs.some(team => !draftTeams[team.key]?.length)) return 'אחת הקבוצות ריקה.'
-    if (Number(roundNumber) === 10) {
-      if (!mandatoryRoundPair || !bothPairMembersSelected) return 'במחזור 10 חובה לבחור את אלי שרם ואת אריק נחום.'
-      if (!pairIsTogether(activeTeamDefs.map(team => draftTeams[team.key] || []), mandatoryRoundPair)) {
-        return 'במחזור 10 אלי שרם ואריק נחום חייבים להיות באותה קבוצה.'
-      }
+    if (Number(roundNumber) === 10 && bothPairMembersSelected &&
+        !pairIsTogether(activeTeamDefs.map(team => draftTeams[team.key] || []), mandatoryRoundPair)) {
+      return 'במחזור 10, אם אלי שרם ואריק נחום משתתפים, הם חייבים להיות באותה קבוצה.'
     }
     return ''
   }
@@ -1114,7 +1108,7 @@ export default function TeamBuilder({ players = [], rounds = [], editSessionId =
 
       {Number(roundNumber) === 10 && <div className="tb-round10-pair-note" role="status">
         <b>🔗 מחזור 10 — ציוות קבוע חד־פעמי</b>
-        <span>אלי שרם ואריק נחום ישחקו באותה קבוצה בכל מצב חלוקה. יש לסמן את שניהם בנוכחות.</span>
+        <span>אם שניהם סומנו כנוכחים, הם ישחקו באותה קבוצה בכל מצב חלוקה. אם אחד מהם לא הגיע, החלוקה תתבצע כרגיל.</span>
       </div>}
       <div className="card tb-attendance">
         <div className="tb-list-head">
