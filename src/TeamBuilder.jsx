@@ -321,6 +321,7 @@ function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'ba
       teams[best.index].push(...pairMembers)
     }
   }
+  const seededTeams = teams.map(team => [...team])
   const seededIds = new Set([...lockedIds, ...(constrainedPair || [])])
   const ordered = selectedPlayers.filter(p => !seededIds.has(p.id)).sort((a, b) => Number(b.overall || 5) - Number(a.overall || 5))
 
@@ -361,7 +362,7 @@ function generateBalancedTeams(selectedPlayers, history, activeTeams, mode = 'ba
   if (teams.some((team, index) => team.length !== capacities[index])) {
     // Guaranteed fallback partition. This keeps the button functional even if a future
     // data edge case makes the greedy pass incomplete.
-    const fallbackTeams = activeTeams.map(t => [...(lockedTeams[t.key] || [])])
+    const fallbackTeams = seededTeams.map(team => [...team])
     const pool = [...ordered]
     capacities.forEach((capacity, teamIndex) => {
       fallbackTeams[teamIndex].push(...pool.splice(0, Math.max(0, capacity - fallbackTeams[teamIndex].length)))
